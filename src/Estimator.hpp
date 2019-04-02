@@ -19,7 +19,7 @@ struct vio_data {
     double t;
     Eigen::Vector3d pos; /* x y z*/
     Eigen::Vector3d vel;
-    Eigen::Vector3d att;
+    Eigen::Quaterniond att;
 };
 
 template<typename T>
@@ -39,7 +39,7 @@ class Filter {
             has_init = false;
             has_first_predict = false;
             ImuBuf_Size = 500;
-            Delay_Size = 50;
+            Delay_Size = 80;
             PredictBuf_Size = 60;
             nav_pub = n.advertise<nav_msgs::Odometry>("/ukf/odometry", 100);
             bias_pub = n.advertise<nav_msgs::Odometry>("/ukf/bias", 100);
@@ -49,15 +49,16 @@ class Filter {
         void init_filter(const vio_data& tmp) {
             X _init_x;
             _init_x.setZero();
-            _init_x.px() = tmp.pos(0);
-            _init_x.py() = tmp.pos(1);
-            _init_x.pz() = tmp.pos(2);
-            _init_x.vx() = tmp.vel(0);
-            _init_x.vy() = tmp.vel(1);
-            _init_x.vz() = tmp.vel(2);
-            _init_x.phi() = tmp.att(0);
-            _init_x.the() = tmp.att(1);
-            _init_x.psi() = tmp.att(2);
+            _init_x.px() = T(tmp.pos(0));
+            _init_x.py() = T(tmp.pos(1));
+            _init_x.pz() = T(tmp.pos(2));
+            _init_x.vx() = T(tmp.vel(0));
+            _init_x.vy() = T(tmp.vel(1));
+            _init_x.vz() = T(tmp.vel(2));
+            _init_x.qw() = T(tmp.att.w());
+            _init_x.qx() = T(tmp.att.x());
+            _init_x.qy() = T(tmp.att.y());
+            _init_x.qz() = T(tmp.att.z());
             filter_mutex.lock();
             predict_core.init(_init_x);
             predict_state<T> tmp_pre;
@@ -91,17 +92,9 @@ class Filter {
             }
             
             /* predict */
-            if (ImuBuf.size() >= Delay_Size) {
-                U _u;
+            if (ImuBuf.size() >= (Delay_Size + 10)) {
+
                 int _i = ImuBuf.size() - Delay_Size;
-                _u.ax() = ImuBuf[_i].acc(0);
-                _u.ay() = ImuBuf[_i].acc(1);
-                _u.az() = ImuBuf[_i].acc(2);
-                _u.wx() = ImuBuf[_i].gyro(0);
-                _u.wy() = ImuBuf[_i].gyro(1);
-                _u.wz() = ImuBuf[_i].gyro(2);
-                V _v;
-                _v.setZero();
                 filter_mutex.lock();
                 typename Kalman::Imu_predict<T>::MotionStates _x;
                 typename Kalman::Imu_predict<T>::StateCovariance _P;
@@ -123,6 +116,27 @@ class Filter {
                     return;
                 }
 
+                U _u;
+                imu_data _mid_filter_data = ImuBuf[_i];
+                for (int _j = 1; _j <= 10; _j++) {
+                    _mid_filter_data.acc += ImuBuf[_i + _j].acc;
+                    _mid_filter_data.gyro += ImuBuf[_i + _j].gyro;
+                    _mid_filter_data.acc += ImuBuf[_i - _j].acc;
+                    _mid_filter_data.gyro += ImuBuf[_i - _j].gyro;
+                }
+
+                _mid_filter_data.acc /= 20 + 1;
+                _mid_filter_data.gyro /= 20 + 1;
+
+                _u.ax() = _mid_filter_data.acc(0);//ImuBuf[_i].acc(0);
+                _u.ay() = _mid_filter_data.acc(1);//[_i].acc(1);
+                _u.az() = _mid_filter_data.acc(2);//[_i].acc(2);
+                _u.wx() = _mid_filter_data.gyro(0);//ImuBuf[_i].gyro(0);
+                _u.wy() = _mid_filter_data.gyro(1);//ImuBuf[_i].gyro(1);
+                _u.wz() = _mid_filter_data.gyro(2);//ImuBuf[_i].gyro(2);
+                V _v;
+                _v.setZero();
+
                 if (!predict_core.predict(_u, _v, T(_dt), _P, _x)) {
                     std::cout << "[filter]: predict wrong!" << std::endl;
                     filter_mutex.unlock();
@@ -136,20 +150,18 @@ class Filter {
                     pub_msg.pose.pose.position.x = _x(0);
                     pub_msg.pose.pose.position.y = _x(1);
                     pub_msg.pose.pose.position.z = _x(2);
-                    Eigen::Quaterniond _x_q = Eigen::AngleAxisd(double(_x(8)), Eigen::Vector3d::UnitZ())
-                        * Eigen::AngleAxisd(double(_x(7)), Eigen::Vector3d::UnitY())
-                        * Eigen::AngleAxisd(double(_x(6)), Eigen::Vector3d::UnitX());
-                    pub_msg.pose.pose.orientation.w = _x_q.w();
-                    pub_msg.pose.pose.orientation.x = _x_q.x();
-                    pub_msg.pose.pose.orientation.y = _x_q.y();
-                    pub_msg.pose.pose.orientation.z = _x_q.z();
+
+                    pub_msg.pose.pose.orientation.w = _x(6);
+                    pub_msg.pose.pose.orientation.x = _x(7);
+                    pub_msg.pose.pose.orientation.y = _x(8);
+                    pub_msg.pose.pose.orientation.z = _x(9);
                     pub_msg.twist.twist.linear.x = _x(3);
                     pub_msg.twist.twist.linear.y = _x(4);
                     pub_msg.twist.twist.linear.z = _x(5);
                     nav_pub.publish(pub_msg);
-                    pub_bias.pose.pose.position.x = _x(9);
-                    pub_bias.pose.pose.position.y = _x(10);
-                    pub_bias.pose.pose.position.z = _x(11);
+                    pub_bias.pose.pose.position.x = _x(10);
+                    pub_bias.pose.pose.position.y = _x(11);
+                    pub_bias.pose.pose.position.z = _x(12);
                     bias_pub.publish(pub_bias);
                 }
                 predict_state<T> _tmp_predict_state;
@@ -179,15 +191,16 @@ class Filter {
                         double _dt = tmp.t - PredictBuf[_PBUF_SIZE - 1 - _i].t;
                         if (_dt > 0.0f ) {
                             Z _z;
-                            _z.px() = tmp.pos(0);
-                            _z.py() = tmp.pos(1);
-                            _z.pz() = tmp.pos(2);
-                            _z.vx() = tmp.vel(0);
-                            _z.vy() = tmp.vel(1);
-                            _z.vz() = tmp.vel(2);
-                            _z.phi() = tmp.att(0);
-                            _z.the() = tmp.att(1);
-                            _z.psi() = tmp.att(2);
+                            _z.px() = T(tmp.pos(0));
+                            _z.py() = T(tmp.pos(1));
+                            _z.pz() = T(tmp.pos(2));
+                            _z.vx() = T(tmp.vel(0));
+                            _z.vy() = T(tmp.vel(1));
+                            _z.vz() = T(tmp.vel(2));
+                            _z.qw() = T(tmp.att.w());
+                            _z.qx() = T(tmp.att.x());
+                            _z.qy() = T(tmp.att.y());
+                            _z.qz() = T(tmp.att.z());
                             N _n;
                             _n.setZero();
                             X _x = PredictBuf[_PBUF_SIZE-1-_i].x;

@@ -32,12 +32,10 @@ void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
     tmp_q.x() = vio_msg->pose.pose.orientation.x;
     tmp_q.y() = vio_msg->pose.pose.orientation.y;
     tmp_q.z() = vio_msg->pose.pose.orientation.z;
-    Eigen::Matrix3d tmp_R = tmp_q.toRotationMatrix();
-    Eigen::Vector3d tmp_e = tmp_R.eulerAngles(2,1,0);
-    std::cout <<"in :R"<< tmp_R << std::endl;
-    tmp_data.att(0) = tmp_e(2);
-    tmp_data.att(1) = tmp_e(1);
-    tmp_data.att(2) = tmp_e(0);
+    // Eigen::Matrix3d tmp_R = tmp_q.toRotationMatrix();
+    // Eigen::Vector3d tmp_e = tmp_R.eulerAngles(2,1,0);
+    // std::cout <<"in :R"<< tmp_R << std::endl;
+    tmp_data.att = tmp_q;
     filter_core_ptr->input_vio(tmp_data);
 }
 
@@ -45,7 +43,7 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "motion_estimator_node");
     ros::NodeHandle node("~");
     filter_core_ptr = new Filter<T>(node);
-    ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu", 20, imu_cb, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
     ros::AsyncSpinner spinner(4);
     spinner.start();

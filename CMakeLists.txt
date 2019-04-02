@@ -164,14 +164,14 @@ include_directories(
 #   ${catkin_LIBRARIES}
 # )
 
-add_executable(${PROJECT_NAME}_test src/ros_motion_estimator_node.cpp )
+# add_executable(${PROJECT_NAME}_test src/ros_motion_estimator_node.cpp )
 add_executable(${PROJECT_NAME}_node src/RosEstimatorNode.cpp )
 #############
 ## Install ##
 #############
- target_link_libraries(${PROJECT_NAME}_test
-   ${catkin_LIBRARIES}
- )
+#  target_link_libraries(${PROJECT_NAME}_test
+#    ${catkin_LIBRARIES}
+#  )
  target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES}
  )

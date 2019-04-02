@@ -6,9 +6,9 @@
 #include <iostream>
 
 template<typename T>
-class Vio_measurement : public Kalman::Vector<T, 9> {
+class Vio_measurement : public Kalman::Vector<T, 10> {
     public:
-        KALMAN_VECTOR(Vio_measurement, T, 9)
+        KALMAN_VECTOR(Vio_measurement, T, 10)
 
         static constexpr size_t pX = 0;
         static constexpr size_t pY = 1;
@@ -16,9 +16,10 @@ class Vio_measurement : public Kalman::Vector<T, 9> {
         static constexpr size_t vX = 3;
         static constexpr size_t vY = 4;
         static constexpr size_t vZ = 5;
-        static constexpr size_t phI = 6;
-        static constexpr size_t thE = 7;
-        static constexpr size_t psI = 8;
+        static constexpr size_t qW = 6;
+        static constexpr size_t qX = 7;
+        static constexpr size_t qY = 8;
+        static constexpr size_t qZ = 9;
 
         T px()      const { return (*this)[ pX ]; }
         T py()      const { return (*this)[ pY ]; }
@@ -26,9 +27,10 @@ class Vio_measurement : public Kalman::Vector<T, 9> {
         T vx()      const { return (*this)[ vX ]; }
         T vy()      const { return (*this)[ vY ]; }
         T vz()      const { return (*this)[ vZ ]; }
-        T phi()      const { return (*this)[ phI ]; }
-        T the()      const { return (*this)[ thE ]; }
-        T psi()      const { return (*this)[ psI ]; }
+        T qw()      const { return (*this)[ qW ]; }
+        T qx()      const { return (*this)[ qX ]; }
+        T qy()      const { return (*this)[ qY ]; }
+        T qz()      const { return (*this)[ qZ ]; }
 
         T& px()      { return (*this)[ pX ]; }
         T& py()      { return (*this)[ pY ]; }
@@ -36,9 +38,10 @@ class Vio_measurement : public Kalman::Vector<T, 9> {
         T& vx()      { return (*this)[ vX ]; }
         T& vy()      { return (*this)[ vY ]; }
         T& vz()      { return (*this)[ vZ ]; }
-        T& phi()     { return (*this)[ phI ]; }
-        T& the()     { return (*this)[ thE ]; }
-        T& psi()     { return (*this)[ psI ]; }
+        T& qw()      { return (*this)[ qW ]; }
+        T& qx()      { return (*this)[ qX ]; }
+        T& qy()      { return (*this)[ qY ]; }
+        T& qz()      { return (*this)[ qZ ]; }
 };
 
 template<typename T>
@@ -93,10 +96,12 @@ class VioMeasurementModel {
 
         VioMeasurementModel() {
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
-            P_vector << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
-            P = P_vector.asDiagonal();
+            // P_vector << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+            // P = P_vector.asDiagonal();
+            P.Identity();
             Kalman::Vector<T, Vmn::RowsAtCompileTime> R_vector;
-            R_vector << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0001, 0.0001, 0.0001;
+            R_vector << 0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03;
+            R_vector /= 30;
             R = R_vector.asDiagonal();
         }
 
@@ -108,9 +113,25 @@ class VioMeasurementModel {
             y_k_1.vx() = x_k_1.vx() + n.vx();
             y_k_1.vy() = x_k_1.vy() + n.vy();
             y_k_1.vz() = x_k_1.vz() + n.vz();
-            y_k_1.phi() = x_k_1.phi() + n.phi();
-            y_k_1.the() = x_k_1.the() + n.the();
-            y_k_1.psi() = x_k_1.psi() + n.psi();
+            Eigen::Quaterniond _dq = Eigen::AngleAxisd(double(n.psi()), Eigen::Vector3d::UnitZ())
+                                * Eigen::AngleAxisd(double(n.the()), Eigen::Vector3d::UnitY())
+                                * Eigen::AngleAxisd(double(n.phi()), Eigen::Vector3d::UnitX());
+            Eigen::Quaterniond _att_q;
+            _att_q.w() = double(x_k_1.qw());
+            _att_q.x() = double(x_k_1.qx());
+            _att_q.y() = double(x_k_1.qy());
+            _att_q.z() = double(x_k_1.qz());
+
+            Eigen::Quaterniond _att_tmp = _att_q * _dq;
+
+            y_k_1.qw() = T(_att_tmp.w());
+            y_k_1.qx() = T(_att_tmp.x());
+            y_k_1.qy() = T(_att_tmp.y());
+            y_k_1.qz() = T(_att_tmp.z());
+            
+            // y_k_1.phi() = x_k_1.phi() + n.phi();
+            // y_k_1.the() = x_k_1.the() + n.the();
+            // y_k_1.psi() = x_k_1.psi() + n.psi();
             return y_k_1;
         }
 };
@@ -151,7 +172,7 @@ class Vio_update {
             R = vmmodel.R;
             // R *= T(0.001f);
             z.setZero();
-            alpha = T(0.2f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
+            alpha = T(0.6f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
             beta = T(2.0f);     //!< Parameter for prior knowledge about the distribution (\f$ \beta = 2 \f$ is optimal for Gaussian)
             kappa = T(0.0f);    //!< Secondary scaling parameter (usually 0)
             computeWeights();
@@ -204,8 +225,8 @@ class Vio_update {
                 = (gamma * _S).colwise() + all_x;
             sigmaStatePoints.template rightCols<StateRowsCount>()
                 = (-gamma * _S).colwise() + all_x;
-            std::cout << "[update]: gamma * S" << std::endl;
-            std::cout << (- gamma *_S).transpose() << std::endl;
+            // std::cout << "[update]: gamma * S" << std::endl;
+            // std::cout << (- gamma *_S).transpose() << std::endl;
             return true;
         }
 
@@ -220,14 +241,14 @@ class Vio_update {
             for ( int i = 0; i < SigmaPointCount; ++i) {
                 sigmaMeasurePoints.col(i) = vmmodel.h( sigmaStatePoints.col(i).head(MSRowsCount), sigmaStatePoints.col(i).tail(PNSRowsCount));
             }
-            std::cout <<"[update]: sigmaPoints" << std::endl;
-            std::cout << sigmaMeasurePoints.transpose() << std::endl;
+            // std::cout <<"[update]: sigmaPoints" << std::endl;
+            // std::cout << sigmaMeasurePoints.transpose() << std::endl;
         }
 
         void computePredictionFromSigmaPoints() {
             y_predict = sigmaMeasurePoints * sigmaWm;
-            std::cout <<"[update]: y_predict" << std::endl;
-            std::cout << y_predict.transpose() << std::endl;
+            // std::cout <<"[update]: y_predict" << std::endl;
+            // std::cout << y_predict.transpose() << std::endl;
         }
 
         void computeCovarianceFromSigmaPoints() {
@@ -243,50 +264,50 @@ class Vio_update {
                 = (sigmaStatePoints.block(0,0, MSRowsCount, SigmaPointCount).colwise() - x).cwiseProduct(W).eval()
                 * (sigmaMeasurePoints.colwise() - y_predict).transpose();
             K = P_xy * P_yy.inverse();
-            std::cout << "[update]: K:" << std::endl;
-            std::cout << K << std::endl; 
+            // std::cout << "[update]: K:" << std::endl;
+            // std::cout << K << std::endl; 
         }
 
         void updateState() {
             MeasureStates tmp = z - y_predict;
 
-            Vector<T, 3> _y_att = y_predict.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
-            Eigen::Matrix3d _y_R;
-            _y_R = Eigen::AngleAxisd(double(_y_att(2)), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(double(_y_att(1)), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(double(_y_att(0)), Eigen::Vector3d::UnitX());
+            // Vector<T, 3> _y_att = y_predict.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
+            // Eigen::Matrix3d _y_R;
+            // _y_R = Eigen::AngleAxisd(double(_y_att(2)), Eigen::Vector3d::UnitZ())
+            //     * Eigen::AngleAxisd(double(_y_att(1)), Eigen::Vector3d::UnitY())
+            //     * Eigen::AngleAxisd(double(_y_att(0)), Eigen::Vector3d::UnitX());
             
-            Vector<T, 3> _sp_att = z.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
-            Eigen::Matrix3d _sp_R;
-            _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
+            // Vector<T, 3> _sp_att = z.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
+            // Eigen::Matrix3d _sp_R;
+            // _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
+            //     * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
+            //     * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
             
-            std::cout << "update: sp_R:" << std::endl;
-            std::cout << _sp_R << std::endl;
-            std::cout << "update: y_R :" << std::endl;
-            std::cout << _y_R << std::endl;
+            // std::cout << "update: sp_R:" << std::endl;
+            // std::cout << _sp_R << std::endl;
+            // std::cout << "update: y_R :" << std::endl;
+            // std::cout << _y_R << std::endl;
             
-            Eigen::Matrix3d temp_eR;
-            temp_eR = (_y_R.transpose()*_sp_R - _sp_R.transpose()*_y_R) / 2.0f;
-            // Eigen::Matrix3d temp_eR = _y_R.transpose() * _sp_R;
+            // Eigen::Matrix3d temp_eR;
+            // temp_eR = (_y_R.transpose()*_sp_R - _sp_R.transpose()*_y_R) / 2.0f;
+            // // Eigen::Matrix3d temp_eR = _y_R.transpose() * _sp_R;
 
-            // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
+            // // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
             
-            tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_eR(2,1));
-            tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_eR(0,2));
-            tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_eR(1,0));
-            // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_ee(2));
-            // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_ee(1));
-            // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_ee(0));
+            // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_eR(2,1));
+            // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_eR(0,2));
+            // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_eR(1,0));
+            // // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_ee(2));
+            // // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_ee(1));
+            // // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_ee(0));
 
-            std::cout << "delta y" << std::endl;
-            std::cout << tmp.transpose() << std::endl;
+            // std::cout << "delta y" << std::endl;
+            // std::cout << tmp.transpose() << std::endl;
 
             x += K * tmp;
 
-            std::cout << "x" << std::endl;
-            std::cout << x.transpose() << std::endl;
+            // std::cout << "x" << std::endl;
+            // std::cout << x.transpose() << std::endl;
         }
 
         void updateStateCovariance() {

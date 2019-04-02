@@ -77,9 +77,9 @@ class Imu_measurement_noise : public Kalman::Vector<T, 12> {
 };
 
 template<typename T>
-class Motion_state : public Kalman::Vector<T, 15> {
+class Motion_state : public Kalman::Vector<T, 16> {
     public:
-        KALMAN_VECTOR(Motion_state, T, 15)
+        KALMAN_VECTOR(Motion_state, T, 16)
 
         static constexpr size_t pX = 0;
         static constexpr size_t pY = 1;
@@ -87,15 +87,16 @@ class Motion_state : public Kalman::Vector<T, 15> {
         static constexpr size_t vX = 3;
         static constexpr size_t vY = 4;
         static constexpr size_t vZ = 5;
-        static constexpr size_t phI = 6;
-        static constexpr size_t thE = 7;
-        static constexpr size_t psI = 8;
-        static constexpr size_t baX = 9;
-        static constexpr size_t baY = 10;
-        static constexpr size_t baZ = 11;
-        static constexpr size_t bwX = 12;
-        static constexpr size_t bwY = 13;
-        static constexpr size_t bwZ = 14;
+        static constexpr size_t qW = 6;
+        static constexpr size_t qX = 7;
+        static constexpr size_t qY = 8;
+        static constexpr size_t qZ = 9;
+        static constexpr size_t baX = 10;
+        static constexpr size_t baY = 11;
+        static constexpr size_t baZ = 12;
+        static constexpr size_t bwX = 13;
+        static constexpr size_t bwY = 14;
+        static constexpr size_t bwZ = 15;
 
         T px()      const { return (*this)[ pX ]; }
         T py()      const { return (*this)[ pY ]; }
@@ -103,9 +104,10 @@ class Motion_state : public Kalman::Vector<T, 15> {
         T vx()      const { return (*this)[ vX ]; }
         T vy()      const { return (*this)[ vY ]; }
         T vz()      const { return (*this)[ vZ ]; }
-        T phi()     const { return (*this)[ phI]; }
-        T the()     const { return (*this)[ thE]; }
-        T psi()     const { return (*this)[ psI]; }
+        T qw()     const { return (*this)[ qW]; }
+        T qx()     const { return (*this)[ qX]; }
+        T qy()     const { return (*this)[ qY]; }
+        T qz()     const { return (*this)[ qZ]; }
         T bax()      const { return (*this)[ baX ]; }
         T bay()      const { return (*this)[ baY ]; }
         T baz()      const { return (*this)[ baZ ]; }
@@ -119,9 +121,10 @@ class Motion_state : public Kalman::Vector<T, 15> {
         T& vx()      { return (*this)[ vX ]; }
         T& vy()      { return (*this)[ vY ]; }
         T& vz()      { return (*this)[ vZ ]; }
-        T& phi()     { return (*this)[ phI]; }
-        T& the()     { return (*this)[ thE]; }
-        T& psi()     { return (*this)[ psI]; }
+        T& qw()      { return (*this)[ qW]; }
+        T& qx()      { return (*this)[ qX]; }
+        T& qy()      { return (*this)[ qY]; }
+        T& qz()      { return (*this)[ qZ]; }
         T& bax()     { return (*this)[ baX ]; }
         T& bay()     { return (*this)[ baY ]; }
         T& baz()     { return (*this)[ baZ ]; }
@@ -147,10 +150,12 @@ class MotionModel {
         MotionModel() {
             one_g << 0, 0, 9.871f;
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
-            P_vector << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001;
+            P_vector << 0.003, 0.003, 0.003, 0.001, 0.001, 0.001, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
+            // P_vector << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
+            P_vector /=10;
             P = P_vector.asDiagonal();
             Kalman::Vector<T, Imn::RowsAtCompileTime> Q_vector;
-            Q_vector << 0.5, 0.5, 0.5, 0.1, 0.1, 0.1, 0.000000001, 0.000000001, 0.000000001, 0.00000001, 0.00000001, 0.00000001;
+            Q_vector << 0.1, 0.1, 0.1, 0.03, 0.03, 0.03, 0.00000000001, 0.00000000001, 0.00000000001, 0.0000000001, 0.0000000001, 0.0000000001;
             Q = Q_vector.asDiagonal();
         }
 
@@ -172,38 +177,57 @@ class MotionModel {
             // T w_m_y = u.wy() + v.v_wy();
             // T w_m_z = u.wz() + v.v_wz();
             Eigen::Matrix3d _R;
-            Eigen::Vector3d _att_euler;
-            _att_euler << x_k.phi(), x_k.the(), x_k.psi();
+            // Eigen::Vector3d _att_euler;
+            // _att_euler << x_k.phi(), x_k.the(), x_k.psi();
+            Eigen::Quaterniond _att_q;
+            _att_q.w() = double(x_k.qw());
+            _att_q.x() = double(x_k.qx());
+            _att_q.y() = double(x_k.qy());
+            _att_q.z() = double(x_k.qz());
+            _att_q.normalized();
+
+
             Eigen::Vector3d _acc_m;
-            _acc_m << a_m_x, a_m_y, a_m_z;
+            _acc_m << double(a_m_x), double(a_m_y), double(a_m_z);
             // get_dcm_from_euler(_R, _att_euler);
-            _R = Eigen::AngleAxisd(_att_euler(2), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(_att_euler(1), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(_att_euler(0), Eigen::Vector3d::UnitX());
+            // _R = Eigen::AngleAxisd(_att_euler(2), Eigen::Vector3d::UnitZ())
+            //     * Eigen::AngleAxisd(_att_euler(1), Eigen::Vector3d::UnitY())
+            //     * Eigen::AngleAxisd(_att_euler(0), Eigen::Vector3d::UnitX());
+            // _R = _att_q.toRotationMatrix();
             
             // std::cout << _R << std::endl;
 
             Eigen::Vector3d _w;
-            _w << w_m_x, w_m_y, w_m_z;
+            _w << double(w_m_x), double(w_m_y), double(w_m_z);
 
-            Eigen::Matrix3d _delta_R;
-            _delta_R(0,0) = 1;
-            _delta_R(1,1) = 1;
-            _delta_R(2,2) = 1;
-            _delta_R(0,1) = -_w(2) * dt;
-            _delta_R(0,2) = _w(1) * dt;
-            _delta_R(1,0) = _w(2) * dt;
-            _delta_R(1,2) = -_w(0) * dt;
-            _delta_R(2,0) = -_w(1) * dt;
-            _delta_R(2,1) = _w(0) * dt;
+            Eigen::Quaterniond _dq = Eigen::AngleAxisd(_w(2)*double(dt), Eigen::Vector3d::UnitZ())
+                                * Eigen::AngleAxisd(_w(1)*double(dt), Eigen::Vector3d::UnitY())
+                                * Eigen::AngleAxisd(_w(0)*double(dt), Eigen::Vector3d::UnitX());
+            Eigen::Quaterniond _att_tmp = _att_q * _dq;
+            _att_tmp.normalized();
+            _R = _att_tmp.toRotationMatrix();
 
-            _R *= _delta_R;
-            _R.normalized();
+            // std::cout << _R << std::endl;
+            // Eigen::Matrix3d _delta_R;
+            // _delta_R(0,0) = 1;
+            // _delta_R(1,1) = 1;
+            // _delta_R(2,2) = 1;
+            // _delta_R(0,1) = -_w(2) * double(dt);
+            // _delta_R(0,2) = _w(1) * double(dt);
+            // _delta_R(1,0) = _w(2) * double(dt);
+            // _delta_R(1,2) = -_w(0) * double(dt);
+            // _delta_R(2,0) = -_w(1) * double(dt);
+            // _delta_R(2,1) = _w(0) * double(dt);
+
+            // _R *= _delta_R;
+            // _R.normalized();
 
             // std::cout << "after rotation" << std::endl;
             // std::cout << _R << std::endl;
 
             Eigen::Vector3d _a = _R * _acc_m - one_g;
+
+            // std::cout << _acc_m.transpose() << std::endl;
 
             Eigen::Vector3d _P;
             _P << double(x_k.px()), double(x_k.py()), double(x_k.pz());
@@ -213,18 +237,22 @@ class MotionModel {
             _P += dt * _V + T(0.5) * dt * dt * _a;
             _V += dt * _a;
 
-            Eigen::Vector3d _att_euler_1 = _R.eulerAngles(2,1,0);
+            // Eigen::Vector3d _att_euler_1 = _R.eulerAngles(2,1,0);
             // std::cout << _att_euler_1.transpose() << std::endl;
 
-            x_k_1.px() = _P(0);
-            x_k_1.py() = _P(1);
-            x_k_1.pz() = _P(2);
-            x_k_1.vx() = _V(0);
-            x_k_1.vy() = _V(1);
-            x_k_1.vz() = _V(2);
-            x_k_1.phi() = _att_euler_1(2);
-            x_k_1.the() = _att_euler_1(1);
-            x_k_1.psi() = _att_euler_1(0);
+            x_k_1.px() = T(_P(0));
+            x_k_1.py() = T(_P(1));
+            x_k_1.pz() = T(_P(2));
+            x_k_1.vx() = T(_V(0));
+            x_k_1.vy() = T(_V(1));
+            x_k_1.vz() = T(_V(2));
+            // x_k_1.phi() = _att_euler_1(2);
+            // x_k_1.the() = _att_euler_1(1);
+            // x_k_1.psi() = _att_euler_1(0);
+            x_k_1.qw() = T(_att_tmp.w());
+            x_k_1.qx() = T(_att_tmp.x());
+            x_k_1.qy() = T(_att_tmp.y());
+            x_k_1.qz() = T(_att_tmp.z());
             x_k_1.bax() = x_k.bax() + v.v_b_ax() * dt;
             x_k_1.bay() = x_k.bay() + v.v_b_ay() * dt;
             x_k_1.baz() = x_k.baz() + v.v_b_az() * dt;
@@ -273,7 +301,7 @@ class Imu_predict {
             // Q *= T(0.01f);
             Q = motion_model.Q;
             x.setZero();
-            alpha = T(0.2f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
+            alpha = T(0.6f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
             beta = T(2.0f);     //!< Parameter for prior knowledge about the distribution (\f$ \beta = 2 \f$ is optimal for Gaussian)
             kappa = T(0.0f);    //!< Secondary scaling parameter (usually 0)
             computeWeights();
@@ -361,24 +389,24 @@ class Imu_predict {
         void computePredictionFromSigmaPoints() {
             AllStates temp_all_state = sigmaStatePoints * sigmaWm;
             // Vector<T, MotionModel<T>::Ms.phI>temp_all_state1 = sigmaStatePoints.block(0,0,MotionModel<T>::Ms.phI,SigmaPointCount) * sigmaWm;
-            Eigen::Matrix3d temp_sum_R;
-            temp_sum_R.setZero();
-            for (int i = 0; i < SigmaPointCount; ++i) {
-                Vector<T, 3> _att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
-                // std::cout << temp_att_state.transpose() << std::endl;
+            // Eigen::Matrix3d temp_sum_R;
+            // temp_sum_R.setZero();
+            // for (int i = 0; i < SigmaPointCount; ++i) {
+            //     Vector<T, 3> _att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
+            //     // std::cout << temp_att_state.transpose() << std::endl;
 
-                Eigen::Matrix3d _R;
-                _R = Eigen::AngleAxisd(double(_att(2)), Eigen::Vector3d::UnitZ())
-                    * Eigen::AngleAxisd(double(_att(1)), Eigen::Vector3d::UnitY())
-                    * Eigen::AngleAxisd(double(_att(0)), Eigen::Vector3d::UnitX());
+            //     Eigen::Matrix3d _R;
+            //     _R = Eigen::AngleAxisd(double(_att(2)), Eigen::Vector3d::UnitZ())
+            //         * Eigen::AngleAxisd(double(_att(1)), Eigen::Vector3d::UnitY())
+            //         * Eigen::AngleAxisd(double(_att(0)), Eigen::Vector3d::UnitX());
                 
-                temp_sum_R += (double)sigmaWm(i) * _R;
-            }
-            temp_sum_R.normalized();
-            Eigen::Vector3d _att_euler_1 = temp_sum_R.eulerAngles(2,1,0);
-            temp_all_state(MotionModel<T>::Ms::phI) = T(_att_euler_1(2));
-            temp_all_state(MotionModel<T>::Ms::thE) = T(_att_euler_1(1));
-            temp_all_state(MotionModel<T>::Ms::psI) = T(_att_euler_1(0));
+            //     temp_sum_R += (double)sigmaWm(i) * _R;
+            // }
+            // temp_sum_R.normalized();
+            // Eigen::Vector3d _att_euler_1 = temp_sum_R.eulerAngles(2,1,0);
+            // temp_all_state(MotionModel<T>::Ms::phI) = T(_att_euler_1(2));
+            // temp_all_state(MotionModel<T>::Ms::thE) = T(_att_euler_1(1));
+            // temp_all_state(MotionModel<T>::Ms::psI) = T(_att_euler_1(0));
 
             x = temp_all_state.head(MSRowsCount);
         }
@@ -387,33 +415,33 @@ class Imu_predict {
             Matrix<T, MSRowsCount, SigmaPointCount> W = sigmaWc.transpose().template replicate<MSRowsCount, 1>();
             Matrix<T, MSRowsCount, SigmaPointCount> tmp_sp = sigmaStatePoints.block(0, 0, MSRowsCount, SigmaPointCount);
             Matrix<T, MSRowsCount, SigmaPointCount> tmp = (tmp_sp.colwise() - x);
-            Vector<T, 3> _x_att = x.block(MotionModel<T>::Ms::phI, 0, 3, 1);
-            Eigen::Matrix3d _x_R;
-            _x_R = Eigen::AngleAxisd(double(_x_att(2)), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(double(_x_att(1)), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(double(_x_att(0)), Eigen::Vector3d::UnitX());
+            // Vector<T, 3> _x_att = x.block(MotionModel<T>::Ms::phI, 0, 3, 1);
+            // Eigen::Matrix3d _x_R;
+            // _x_R = Eigen::AngleAxisd(double(_x_att(2)), Eigen::Vector3d::UnitZ())
+            //     * Eigen::AngleAxisd(double(_x_att(1)), Eigen::Vector3d::UnitY())
+            //     * Eigen::AngleAxisd(double(_x_att(0)), Eigen::Vector3d::UnitX());
 
-            for (int i = 0; i < SigmaPointCount; ++i) {
-                Vector<T, 3> _sp_att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
-                Eigen::Matrix3d _sp_R;
-                _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
-                    * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
-                    * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
+            // for (int i = 0; i < SigmaPointCount; ++i) {
+            //     Vector<T, 3> _sp_att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
+            //     Eigen::Matrix3d _sp_R;
+            //     _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
+            //         * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
+            //         * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
                      
-                Eigen::Matrix3d temp_eR;
-                temp_eR = (_x_R.transpose()*_sp_R - _sp_R.transpose()*_x_R) / 2.0f;
-                // Eigen::Matrix3d temp_eR = _x_R.transpose() *_sp_R;
+            //     Eigen::Matrix3d temp_eR;
+            //     temp_eR = (_x_R.transpose()*_sp_R - _sp_R.transpose()*_x_R) / 2.0f;
+            //     // Eigen::Matrix3d temp_eR = _x_R.transpose() *_sp_R;
 
-                // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
+            //     // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
 
-                tmp(MotionModel<T>::Ms::phI, i) = T(temp_eR(2,1));
-                tmp(MotionModel<T>::Ms::thE, i) = T(temp_eR(0,2));
-                tmp(MotionModel<T>::Ms::psI, i) = T(temp_eR(1,0));
-                // tmp(MotionModel<T>::Ms::phI, i) = T(temp_ee(2));
-                // tmp(MotionModel<T>::Ms::thE, i) = T(temp_ee(1));
-                // tmp(MotionModel<T>::Ms::psI, i) = T(temp_ee(0));
-                // std::cout << "tmp[:,"<<i <<"]:" << tmp.col(i).transpose() << std::endl;
-            }
+            //     tmp(MotionModel<T>::Ms::phI, i) = T(temp_eR(2,1));
+            //     tmp(MotionModel<T>::Ms::thE, i) = T(temp_eR(0,2));
+            //     tmp(MotionModel<T>::Ms::psI, i) = T(temp_eR(1,0));
+            //     // tmp(MotionModel<T>::Ms::phI, i) = T(temp_ee(2));
+            //     // tmp(MotionModel<T>::Ms::thE, i) = T(temp_ee(1));
+            //     // tmp(MotionModel<T>::Ms::psI, i) = T(temp_ee(0));
+            //     // std::cout << "tmp[:,"<<i <<"]:" << tmp.col(i).transpose() << std::endl;
+            // }
             
             P = tmp.cwiseProduct(W) * tmp.transpose();
         }
