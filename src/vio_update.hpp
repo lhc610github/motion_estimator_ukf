@@ -151,7 +151,7 @@ class Vio_update {
             R = vmmodel.R;
             // R *= T(0.001f);
             z.setZero();
-            alpha = T(0.01f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
+            alpha = T(0.2f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
             beta = T(2.0f);     //!< Parameter for prior knowledge about the distribution (\f$ \beta = 2 \f$ is optimal for Gaussian)
             kappa = T(0.0f);    //!< Secondary scaling parameter (usually 0)
             computeWeights();
@@ -204,7 +204,8 @@ class Vio_update {
                 = (gamma * _S).colwise() + all_x;
             sigmaStatePoints.template rightCols<StateRowsCount>()
                 = (-gamma * _S).colwise() + all_x;
-
+            std::cout << "[update]: gamma * S" << std::endl;
+            std::cout << (- gamma *_S).transpose() << std::endl;
             return true;
         }
 
@@ -219,10 +220,14 @@ class Vio_update {
             for ( int i = 0; i < SigmaPointCount; ++i) {
                 sigmaMeasurePoints.col(i) = vmmodel.h( sigmaStatePoints.col(i).head(MSRowsCount), sigmaStatePoints.col(i).tail(PNSRowsCount));
             }
+            std::cout <<"[update]: sigmaPoints" << std::endl;
+            std::cout << sigmaMeasurePoints.transpose() << std::endl;
         }
 
         void computePredictionFromSigmaPoints() {
             y_predict = sigmaMeasurePoints * sigmaWm;
+            std::cout <<"[update]: y_predict" << std::endl;
+            std::cout << y_predict.transpose() << std::endl;
         }
 
         void computeCovarianceFromSigmaPoints() {
@@ -238,6 +243,8 @@ class Vio_update {
                 = (sigmaStatePoints.block(0,0, MSRowsCount, SigmaPointCount).colwise() - x).cwiseProduct(W).eval()
                 * (sigmaMeasurePoints.colwise() - y_predict).transpose();
             K = P_xy * P_yy.inverse();
+            std::cout << "[update]: K:" << std::endl;
+            std::cout << K << std::endl; 
         }
 
         void updateState() {
@@ -255,25 +262,31 @@ class Vio_update {
                 * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
                 * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
             
-            std::cout << "update: R:" << _sp_R << std::endl;
-            std::cout << "update: R1:" << _y_R << std::endl;
+            std::cout << "update: sp_R:" << std::endl;
+            std::cout << _sp_R << std::endl;
+            std::cout << "update: y_R :" << std::endl;
+            std::cout << _y_R << std::endl;
             
-            // Eigen::Matrix3d temp_eR;
-            // temp_eR = (_y_R.transpose()*_sp_R - _sp_R.transpose()*_y_R) / 2.0f;
-            Eigen::Matrix3d temp_eR = _y_R.transpose() * _sp_R;
+            Eigen::Matrix3d temp_eR;
+            temp_eR = (_y_R.transpose()*_sp_R - _sp_R.transpose()*_y_R) / 2.0f;
+            // Eigen::Matrix3d temp_eR = _y_R.transpose() * _sp_R;
 
-            Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
+            // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
             
-            // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_eR(2,1));
-            // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_eR(0,2));
-            // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_eR(1,0));
-            tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_ee(2));
-            tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_ee(1));
-            tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_ee(0));
+            tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_eR(2,1));
+            tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_eR(0,2));
+            tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_eR(1,0));
+            // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_ee(2));
+            // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_ee(1));
+            // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_ee(0));
 
+            std::cout << "delta y" << std::endl;
             std::cout << tmp.transpose() << std::endl;
 
             x += K * tmp;
+
+            std::cout << "x" << std::endl;
+            std::cout << x.transpose() << std::endl;
         }
 
         void updateStateCovariance() {

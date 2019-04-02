@@ -147,7 +147,7 @@ class MotionModel {
         MotionModel() {
             one_g << 0, 0, 9.871f;
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
-            P_vector << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001;
+            P_vector << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001;
             P = P_vector.asDiagonal();
             Kalman::Vector<T, Imn::RowsAtCompileTime> Q_vector;
             Q_vector << 0.5, 0.5, 0.5, 0.1, 0.1, 0.1, 0.000000001, 0.000000001, 0.000000001, 0.00000001, 0.00000001, 0.00000001;
@@ -273,7 +273,7 @@ class Imu_predict {
             // Q *= T(0.01f);
             Q = motion_model.Q;
             x.setZero();
-            alpha = T(0.01f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
+            alpha = T(0.2f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
             beta = T(2.0f);     //!< Parameter for prior knowledge about the distribution (\f$ \beta = 2 \f$ is optimal for Gaussian)
             kappa = T(0.0f);    //!< Secondary scaling parameter (usually 0)
             computeWeights();
@@ -400,18 +400,18 @@ class Imu_predict {
                     * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
                     * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
                      
-                // Eigen::Matrix3d temp_eR;
-                // temp_eR = (_x_R.transpose()*_sp_R - _sp_R.transpose()*_x_R) / 2.0f;
-                Eigen::Matrix3d temp_eR = _x_R.transpose() *_sp_R;
+                Eigen::Matrix3d temp_eR;
+                temp_eR = (_x_R.transpose()*_sp_R - _sp_R.transpose()*_x_R) / 2.0f;
+                // Eigen::Matrix3d temp_eR = _x_R.transpose() *_sp_R;
 
-                Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
+                // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
 
-                // tmp(MotionModel<T>::Ms::phI, i) = T(temp_eR(2,1));
-                // tmp(MotionModel<T>::Ms::thE, i) = T(temp_eR(0,2));
-                // tmp(MotionModel<T>::Ms::psI, i) = T(temp_eR(1,0));
-                tmp(MotionModel<T>::Ms::phI, i) = T(temp_ee(2));
-                tmp(MotionModel<T>::Ms::thE, i) = T(temp_ee(1));
-                tmp(MotionModel<T>::Ms::psI, i) = T(temp_ee(0));
+                tmp(MotionModel<T>::Ms::phI, i) = T(temp_eR(2,1));
+                tmp(MotionModel<T>::Ms::thE, i) = T(temp_eR(0,2));
+                tmp(MotionModel<T>::Ms::psI, i) = T(temp_eR(1,0));
+                // tmp(MotionModel<T>::Ms::phI, i) = T(temp_ee(2));
+                // tmp(MotionModel<T>::Ms::thE, i) = T(temp_ee(1));
+                // tmp(MotionModel<T>::Ms::psI, i) = T(temp_ee(0));
                 // std::cout << "tmp[:,"<<i <<"]:" << tmp.col(i).transpose() << std::endl;
             }
             
