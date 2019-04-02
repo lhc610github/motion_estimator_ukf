@@ -45,9 +45,10 @@ int main(int argc, char** argv) {
     filter_core_ptr = new Filter<T>(node);
     ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
-    ros::AsyncSpinner spinner(4);
-    spinner.start();
-    ros::waitForShutdown();
-    spinner.stop();
+    ros::spin();
+    // ros::AsyncSpinner spinner(4);
+    // spinner.start();
+    // ros::waitForShutdown();
+    // spinner.stop();
     return 0;
 }

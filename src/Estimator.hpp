@@ -111,7 +111,7 @@ class Filter {
                     return;
                 }
 
-                if (_dt < 0.005f) { // 200Hz
+                if (_dt < 0.006f) { // 200Hz
                     filter_mutex.unlock();
                     return;
                 }
