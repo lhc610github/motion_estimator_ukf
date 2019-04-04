@@ -95,7 +95,7 @@ class VioMeasurementModel {
         VmnCov R;
 
         VioMeasurementModel() {
-            Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
+            // Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
             // P_vector << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
             // P = P_vector.asDiagonal();
             P.Identity();
@@ -123,6 +123,7 @@ class VioMeasurementModel {
             _att_q.z() = double(x_k_1.qz());
 
             Eigen::Quaterniond _att_tmp = _att_q * _dq;
+            _att_tmp.normalized();
 
             y_k_1.qw() = T(_att_tmp.w());
             y_k_1.qx() = T(_att_tmp.x());
@@ -247,6 +248,16 @@ class Vio_update {
 
         void computePredictionFromSigmaPoints() {
             y_predict = sigmaMeasurePoints * sigmaWm;
+            Eigen::Quaterniond _tmp_q;
+            _tmp_q.w() = double(y_predict(6));
+            _tmp_q.x() = double(y_predict(7));
+            _tmp_q.y() = double(y_predict(8));
+            _tmp_q.z() = double(y_predict(9));
+            _tmp_q.normalized();
+            y_predict(6) = T(_tmp_q.w());
+            y_predict(7) = T(_tmp_q.x());
+            y_predict(8) = T(_tmp_q.y());
+            y_predict(9) = T(_tmp_q.z());
             // std::cout <<"[update]: y_predict" << std::endl;
             // std::cout << y_predict.transpose() << std::endl;
         }
@@ -270,6 +281,32 @@ class Vio_update {
 
         void updateState() {
             MeasureStates tmp = z - y_predict;
+
+            // Eigen::Quaterniond _z_att;
+            // _z_att.w() = z.qw();
+            // _z_att.x() = z.qx();
+            // _z_att.y() = z.qy();
+            // _z_att.z() = z.qz();
+            // _z_att.normalized();
+
+            // Eigen::Quaterniond _y_att;
+            // _y_att.w() = y_predict.qw();
+            // _y_att.x() = y_predict.qx();
+            // _y_att.y() = y_predict.qy();
+            // _y_att.z() = y_predict.qz();
+            // _y_att.normalized();
+
+            // Eigen::Quaterniond _q_att_inv = _z_att.inverse();
+            // Eigen::Quaterniond _delta_att = _q_att_inv * _y_att;
+            // _delta_att.normalized();
+            // double _scalar;
+            // if (_delta_att.w() >= 0.0f) {
+            //     _scalar = -2.0f;
+            // } else {
+            //     _scalar = 2.0f;
+            // }
+
+            // Eigen::Vector3d _delta_ang_err{_scalar*_delta_att.x(), _scalar*_delta_att.y(), _scalar*_delta_att.z()};
 
             // Vector<T, 3> _y_att = y_predict.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
             // Eigen::Matrix3d _y_R;
@@ -305,7 +342,16 @@ class Vio_update {
             // std::cout << tmp.transpose() << std::endl;
 
             x += K * tmp;
-
+            Eigen::Quaterniond _tmp_q;
+            _tmp_q.w() = double(x(6));
+            _tmp_q.x() = double(x(7));
+            _tmp_q.y() = double(x(8));
+            _tmp_q.z() = double(x(9));
+            _tmp_q.normalized();
+            x(6) = T(_tmp_q.w());
+            x(7) = T(_tmp_q.x());
+            x(8) = T(_tmp_q.y());
+            x(9) = T(_tmp_q.z());
             // std::cout << "x" << std::endl;
             // std::cout << x.transpose() << std::endl;
         }
