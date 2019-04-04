@@ -100,7 +100,7 @@ class VioMeasurementModel {
             // P = P_vector.asDiagonal();
             P.Identity();
             Kalman::Vector<T, Vmn::RowsAtCompileTime> R_vector;
-            R_vector << 0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03;
+            R_vector << 0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01;
             R_vector /= 30;
             R = R_vector.asDiagonal();
         }

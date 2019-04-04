@@ -3,48 +3,31 @@
 
 #include "imu_predict.hpp"
 #include "vio_update.hpp"
+#include "filter_type.hpp"
+#include "output_predictor.hpp"
 #include <deque>
 #include <mutex>
 
-#include "ros/ros.h"
-#include "nav_msgs/Odometry.h"
-
-struct imu_data {
-    double t;
-    Eigen::Vector3d acc;
-    Eigen::Vector3d gyro;
-};
-
-struct vio_data {
-    double t;
-    Eigen::Vector3d pos; /* x y z*/
-    Eigen::Vector3d vel;
-    Eigen::Quaterniond att;
-};
-
-template<typename T>
-class predict_state {
-    public:
-        predict_state() {}
-        ~predict_state() {}
-        double t;
-        typename Kalman::Imu_predict<T>::MotionStates x;
-        typename Kalman::Imu_predict<T>::StateCovariance P;
-};
 
 template<typename T>
 class Filter {
     public:
-        Filter(ros::NodeHandle& n) {
+        Filter() {
             has_init = false;
             has_first_predict = false;
             ImuBuf_Size = 500;
-            Delay_Size = 80;
+            has_regist_publisher = false;
+            // Delay_Size = 80;
+            int Delay_output_period = 11;
             PredictBuf_Size = 60;
-            nav_pub = n.advertise<nav_msgs::Odometry>("/ukf/odometry", 100);
-            bias_pub = n.advertise<nav_msgs::Odometry>("/ukf/bias", 100);
+            OutputPeriodCount = 7;
+            Delay_Size = Delay_output_period * OutputPeriodCount;
+            PredictIndex = 0;
+            outputpredictor_filter_ptr = new OutputPredictor<T>(Delay_output_period, OutputPeriodCount);
         }
-        ~Filter() {}
+        ~Filter() {
+            delete outputpredictor_filter_ptr;
+        }
 
         void init_filter(const vio_data& tmp) {
             X _init_x;
@@ -70,6 +53,8 @@ class Filter {
             filter_mutex.unlock();
             std::cout << "[filter]: init x("<< tmp_pre.t << "): " << _init_x.transpose() << std::endl;
             has_init = true;
+            PredictIndex = 0;
+            outputpredictor_filter_ptr->reset();
         }
 
         void restart_filter() {
@@ -79,18 +64,19 @@ class Filter {
             PredictBuf.clear();
             predict_core.reset();
             vio_update_core.reset();
+            outputpredictor_filter_ptr->reset();
+            PredictIndex = 0;
             // std::cout << "end restart" << std::endl;
         }
 
         void input_imu(imu_data tmp) {
             ImuBuf.push_back(tmp);
-            if (!has_init) {
-                while ( ImuBuf.size() > ImuBuf_Size ) {
+            if (! has_init) {
+                while (ImuBuf.size()> ImuBuf_Size) {
                     ImuBuf.pop_front();
                 }
                 return;
             }
-            
             /* predict */
             if (ImuBuf.size() >= (Delay_Size + 10)) {
 
@@ -102,7 +88,10 @@ class Filter {
                 if (_dt < 0.0) {
                     std::cout << "[filter]: predict dt < 0 ? : " << _dt << std::endl;
                     std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
-                    _dt = 0.001f;
+                    // _dt = 0.001f;
+                    restart_filter();
+                    filter_mutex.unlock();
+                    return;
                 } else if (_dt > 1.0f) {
                     std::cout << "[filter]: predict dt to large ? : "<< _dt << std::endl;
                     std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
@@ -111,9 +100,15 @@ class Filter {
                     return;
                 }
 
-                if (_dt < 0.006f) { // 200Hz
+                PredictIndex++;
+                // input output filter
+                double _dt_imu = ImuBuf[ImuBuf.size()-1].t - ImuBuf[ImuBuf.size()-2].t;
+                outputpredictor_filter_ptr->input_imu(tmp, PredictIndex, _dt_imu);
+                if (PredictIndex < OutputPeriodCount) { // IMU sample rate / OutputPeriodCount
                     filter_mutex.unlock();
                     return;
+                } else {
+                    PredictIndex = 0;
                 }
 
                 U _u;
@@ -143,26 +138,23 @@ class Filter {
                     return;
                 } else {
                     has_first_predict = true;
-                    nav_msgs::Odometry pub_msg, pub_bias;
-                    pub_msg.header.frame_id = "world";
-                    pub_msg.header.stamp = ros::Time(ImuBuf[_i].t);
-                    pub_bias = pub_msg;
-                    pub_msg.pose.pose.position.x = _x(0);
-                    pub_msg.pose.pose.position.y = _x(1);
-                    pub_msg.pose.pose.position.z = _x(2);
+                    outputpredictor_filter_ptr->update_output(_x, ImuBuf[_i].t);
+                    if (has_regist_publisher) {
+                        Eigen::Vector3d _tmp_pos, _tmp_vel, _tmp_acc;
+                        Eigen::Quaterniond _tmp_q;
+                        _tmp_pos << _x(0), _x(1), _x(2);
+                        _tmp_vel << _x(3), _x(4), _x(5);
+                        _tmp_q.w() = _x(6);
+                        _tmp_q.x() = _x(7);
+                        _tmp_q.y() = _x(8);
+                        _tmp_q.z() = _x(9);
+                        Eigen::Matrix3d _tmp_R = _tmp_q.toRotationMatrix();
+                        Eigen::Vector3d _tmp_acc_b{_x(10), _x(11), _x(12)};
+                        Eigen::Vector3d _g{0,0,9.80665f};
+                        _tmp_acc = _tmp_R * (ImuBuf[_i].acc - _tmp_acc_b) - _g;
 
-                    pub_msg.pose.pose.orientation.w = _x(6);
-                    pub_msg.pose.pose.orientation.x = _x(7);
-                    pub_msg.pose.pose.orientation.y = _x(8);
-                    pub_msg.pose.pose.orientation.z = _x(9);
-                    pub_msg.twist.twist.linear.x = _x(3);
-                    pub_msg.twist.twist.linear.y = _x(4);
-                    pub_msg.twist.twist.linear.z = _x(5);
-                    nav_pub.publish(pub_msg);
-                    pub_bias.pose.pose.position.x = _x(10);
-                    pub_bias.pose.pose.position.y = _x(11);
-                    pub_bias.pose.pose.position.z = _x(12);
-                    bias_pub.publish(pub_bias);
+                        estimator_publisher_ptr->UkfPub(_tmp_pos, _tmp_vel, _tmp_acc, _tmp_q, ImuBuf[_i].t);
+                    }
                 }
                 predict_state<T> _tmp_predict_state;
                 _tmp_predict_state.t = ImuBuf[_i].t;
@@ -226,6 +218,12 @@ class Filter {
             }
         }
 
+        void set_publish(EstimatorPublisher& _tmp) {
+            has_regist_publisher = true;
+            estimator_publisher_ptr = &_tmp;
+            outputpredictor_filter_ptr->set_publish(_tmp);
+        }
+
     private:
         typedef typename MotionModel<T>::Im U;
         typedef typename MotionModel<T>::Imn V;
@@ -245,9 +243,13 @@ class Filter {
 
         std::deque<predict_state<T>> PredictBuf;
         int PredictBuf_Size;
+        int OutputPeriodCount;
+        int PredictIndex; 
 
-        ros::Publisher nav_pub;
-        ros::Publisher bias_pub;
+        OutputPredictor<T>* outputpredictor_filter_ptr;
+
+        bool has_regist_publisher;
+        EstimatorPublisher* estimator_publisher_ptr;
 
 };
 
