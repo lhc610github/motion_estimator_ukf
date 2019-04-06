@@ -65,9 +65,9 @@ class Vio_measurement_noise : public Kalman::Vector<T, 9> {
         T vx()      const { return (*this)[ vX ]; }
         T vy()      const { return (*this)[ vY ]; }
         T vz()      const { return (*this)[ vZ ]; }
-        T phi()      const { return (*this)[ phI ]; }
-        T the()      const { return (*this)[ thE ]; }
-        T psi()      const { return (*this)[ psI ]; }
+        T phi()     const { return (*this)[ phI ]; }
+        T the()     const { return (*this)[ thE ]; }
+        T psi()     const { return (*this)[ psI ]; }
 
         T& px()      { return (*this)[ pX ]; }
         T& py()      { return (*this)[ pY ]; }
@@ -130,9 +130,6 @@ class VioMeasurementModel {
             y_k_1.qy() = T(_att_tmp.y());
             y_k_1.qz() = T(_att_tmp.z());
             
-            // y_k_1.phi() = x_k_1.phi() + n.phi();
-            // y_k_1.the() = x_k_1.the() + n.the();
-            // y_k_1.psi() = x_k_1.psi() + n.psi();
             return y_k_1;
         }
 };

@@ -62,11 +62,11 @@ namespace Kalman {
 template<typename T>
 class Lidar_update {
     public:
-        lidar_update() {
+        Lidar_update() {
             reset();
         }
 
-        ~lidar_update() {}
+        ~Lidar_update() {}
         static constexpr int SigmaPointCount = 2 * (LidarMeasurementModel<T>::Ms::RowsAtCompileTime + LidarMeasurementModel<T>::Lmn::RowsAtCompileTime) + 1;
         static constexpr int StateRowsCount = LidarMeasurementModel<T>::Ms::RowsAtCompileTime + LidarMeasurementModel<T>::Lmn::RowsAtCompileTime;
         static constexpr int MSRowsCount = LidarMeasurementModel<T>::Ms::RowsAtCompileTime;
@@ -75,12 +75,12 @@ class Lidar_update {
 
         typedef Vector<T, SigmaPointCount> SigmaWeights;
         typedef Vector<T, StateRowsCount> AllStates;
-        typedef Vector<T, LMSRowsCount> MeasurementStates;
+        typedef Vector<T, LMSRowsCount> MeasureStates;
         typedef Vector<T, PNSRowsCount> NoiseStates;
         typedef Matrix<T, StateRowsCount, SigmaPointCount> SigmaPoints;
         typedef Matrix<T, LMSRowsCount, LMSRowsCount> MeasurementCovariance;
         typedef Matrix<T, PNSRowsCount, PNSRowsCount> NoiseCovariance;
-        typedef Matrix<T, LMSRowsCount, SigmaPointCount> VMSigmaPoints;
+        typedef Matrix<T, LMSRowsCount, SigmaPointCount> LMSigmaPoints;
         typedef Matrix<T, MSRowsCount, LMSRowsCount> FilterGains;
         typedef Matrix<T, MSRowsCount, MSRowsCount> StateCovariance;
         typedef Vector<T, MSRowsCount> MotionStates;
