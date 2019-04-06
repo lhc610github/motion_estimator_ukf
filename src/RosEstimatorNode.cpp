@@ -2,6 +2,7 @@
 #include "Estimator.hpp"
 #include "nav_msgs/Odometry.h"
 #include "sensor_msgs/Imu.h"
+#include "sensor_msgs/FluidPressure.h"
 
 #include "estimator_publisher.hpp"
 
@@ -41,6 +42,13 @@ void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
     filter_core_ptr->input_vio(tmp_data);
 }
 
+void lidar_cb(const sensor_msgs::FluidPressurePtr& lidar_msg) {
+    lidar_data tmp_data;
+    tmp_data.t = lidar_msg->header.stamp.toSec();
+    tmp_data.data = lidar_msg->fluid_pressure;
+    filter_core_ptr->input_lidar(tmp_data);
+}
+
 int main(int argc, char** argv) {
     ros::init(argc, argv, "motion_estimator_node");
     ros::NodeHandle node("~");
@@ -50,6 +58,7 @@ int main(int argc, char** argv) {
     filter_core_ptr->set_publish(_estimator_publisher);
     ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
+    ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_raw", 10, lidar_cb);
     ros::spin();
     // ros::AsyncSpinner spinner(4);
     // spinner.start();

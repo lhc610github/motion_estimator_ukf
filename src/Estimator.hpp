@@ -267,10 +267,10 @@ class Filter {
                 filter_mutex.lock();
                 int _PBUF_SIZE = PredictBuf.size();
                 if (_PBUF_SIZE > 1) {
-                    // for (auto _it = LidarBuf.rbegin(); _it >= LidarBuf.begin(); _it--) {
                     for (int _i = LidarBuf.size()-1; _i >=0; _i--) {
                         if (_i == 0) {
                             std::cout << "[filter]: lidar update time wrong" << std::endl;
+                            filter_mutex.unlock();
                             return;
                         }
                         if (LidarBuf[_i].t < PredictBuf.rbegin()->t) {
@@ -313,11 +313,14 @@ class Filter {
                                     PredictBuf.clear();
                                     PredictBuf.push_back(_p_s);
                                     // TODO: update correct bias of vio z
+                                    filter_mutex.unlock();
                                     return;
                                 }
                             } 
                             // re measurement the terrain
+                            last_lidar_measurement_valid_time = _need_to_update.t;
                             terrain_vpos = PredictBuf.rbegin()->x(2) - _meas_height;
+                            std::cout << "[filter]: lidar update: z: " << PredictBuf.rbegin()->x(2) << " lidar: " << _meas_height << std::endl;
                             std::cout << "[filter]: lidar update: terrain vpos: " << terrain_vpos << std::endl;
                         }
                     }
