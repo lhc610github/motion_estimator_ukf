@@ -284,12 +284,12 @@ class Filter {
                             if (_tmp_lidar.data > 0.7) {
                                 double _meas_distant = -0.02f * _tmp_R(2,0) - 0.05f * _tmp_R(2,1) + _tmp_lidar.data * _tmp_R(2,2);
                                 double _err_vio_lidar_z = tmp.pos(2) - bias_vio_z - _meas_distant - terrain_vpos;//_error_lidar;
-                                std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
+                                // std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
                                 err_vio_lidar_z_integ += _err_vio_lidar_z;
                                 double _lidar_correct_gain = 0.08f/ 0.25f;
                                 double _lidar_correct_gain_sp = _lidar_correct_gain * _lidar_correct_gain;
                                 bias_vio_z = _lidar_correct_gain * _err_vio_lidar_z + _lidar_correct_gain_sp * 0.2f * err_vio_lidar_z_integ;
-                                std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
+                                // std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
                             }
                         }
                     }
