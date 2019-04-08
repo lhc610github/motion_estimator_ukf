@@ -29,6 +29,8 @@ class Filter {
             need_to_update_lidar = 0;
             terrain_vpos = 0;
             last_lidar_measurement_valid_time = 0;
+            bias_vio_z = 0;
+            err_vio_lidar_z_integ = 0;
         }
         ~Filter() {
             delete outputpredictor_filter_ptr;
@@ -79,6 +81,9 @@ class Filter {
             LidarBuf.clear();
             need_to_update_vio = 0;
             need_to_update_lidar = 0;
+
+            bias_vio_z = 0;
+            err_vio_lidar_z_integ = 0;
             std::cout << "[filter]: restart" << std::endl;
         }
 
@@ -213,7 +218,7 @@ class Filter {
             } else {
                 filter_mutex.lock();
                 int _PBUF_SIZE = PredictBuf.size();
-                if (_PBUF_SIZE > 1) {
+                // if (_PBUF_SIZE > 1) {
                     for (int _i = 0; _i < _PBUF_SIZE; _i++) {
                         double _dt = tmp.t - PredictBuf[_PBUF_SIZE - 1 - _i].t;
                         if (_dt > 0.0f ) {
@@ -230,6 +235,7 @@ class Filter {
                             _z.qz() = T(tmp.att.z());
                             N _n;
                             _n.setZero();
+                            _n.pz() = bias_vio_z;
                             X _x = PredictBuf[_PBUF_SIZE-1-_i].x;
                             P _P = PredictBuf[_PBUF_SIZE-1-_i].P;
                             vio_update_core.update(_z, _x, _P, _n);
@@ -246,10 +252,49 @@ class Filter {
                             // TODO: check delay
                         }
                     }
-                } else {
-                    std::cout << "[filter]: vio update: has no predict before update" << std::endl;
-                    need_to_update_vio ++;
+                // } else {
+                //     std::cout << "[filter]: vio update: has no predict before update" << std::endl;
+                //     need_to_update_vio ++;
+                // }
+
+                // update lidar correct 
+
+                double _meas_dt = tmp.t - last_lidar_measurement_valid_time;
+                if (_meas_dt < 0.5f) {
+                    lidar_data _tmp_lidar;
+                    // std::cout << "hello" << std::endl;
+                    for (int _i = LidarBuf.size()-1; _i >=0 ; _i-- ) {
+                        if (LidarBuf[_i].t < tmp.t) {
+                            lidar_data _tmp_lidar = LidarBuf[_i];
+                            break;
+                        }
+                    }
+                    double _valid_dt = tmp.t - _tmp_lidar.t;
+                    if (_valid_dt > 0 && _valid_dt < 0.5f) {
+                        // std::cout << "hello2" << std::endl;
+                        Eigen::Quaterniond _tmp_q;
+                        _tmp_q.w() = double(tmp.att.w());
+                        _tmp_q.x() = double(tmp.att.x());
+                        _tmp_q.y() = double(tmp.att.y());
+                        _tmp_q.z() = double(tmp.att.z());
+                        _tmp_q.normalized();
+                        Eigen::Matrix3d _tmp_R = _tmp_q.toRotationMatrix();
+                        if (_tmp_R(2,2) > 0.8f) {
+                        // std::cout << "hello3" << std::endl;
+                            if (_tmp_lidar.data > 0.7) {
+                                double _meas_distant = -0.02f * _tmp_R(2,0) - 0.05f * _tmp_R(2,1) + _tmp_lidar.data * _tmp_R(2,2);
+                                double _err_vio_lidar_z = tmp.pos(2) - bias_vio_z - _meas_distant - terrain_vpos;//_error_lidar;
+                                std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
+                                err_vio_lidar_z_integ += _err_vio_lidar_z;
+                                double _lidar_correct_gain = 0.08f/ 0.25f;
+                                double _lidar_correct_gain_sp = _lidar_correct_gain * _lidar_correct_gain;
+                                bias_vio_z = _lidar_correct_gain * _err_vio_lidar_z + _lidar_correct_gain_sp * 0.2f * err_vio_lidar_z_integ;
+                                std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
+                            }
+                        }
+                    }
                 }
+
                 filter_mutex.unlock();
             }
         }
@@ -265,8 +310,8 @@ class Filter {
         void process_lidar_update(lidar_data tmp) {
             if (has_first_predict) {
                 filter_mutex.lock();
-                int _PBUF_SIZE = PredictBuf.size();
-                if (_PBUF_SIZE > 1) {
+                // int _PBUF_SIZE = PredictBuf.size();
+                // if (_PBUF_SIZE > 1) {
                     for (int _i = LidarBuf.size()-1; _i >=0; _i--) {
                         if (_i == 0) {
                             std::cout << "[filter]: lidar update time wrong" << std::endl;
@@ -275,6 +320,7 @@ class Filter {
                         }
                         if (LidarBuf[_i].t < PredictBuf.rbegin()->t) {
                             tmp = LidarBuf[_i];
+                            // std::cout << _i << std::endl;
                             break;
                         }
                     }
@@ -285,23 +331,27 @@ class Filter {
                     _tmp_q.z() = double(PredictBuf.rbegin()->x(9));
                     Eigen::Matrix3d _temp_R = _tmp_q.toRotationMatrix();
                     double _R_22 = _temp_R(2,2);
+                    double _R_21 = _temp_R(2,1);
+                    double _R_20 = _temp_R(2,0);
                     if (_R_22 > 0.8f) {
-                        double _meas_height = tmp.data * _R_22;
+                        double _meas_height = - 0.02f * _R_20 - 0.05f * _R_21 + tmp.data * _R_22;
+                        estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height + terrain_vpos, tmp.t);
                         lidar_data _need_to_update;
                         _need_to_update.t = tmp.t;
                         _need_to_update.data = _meas_height;
-                        if (tmp.data > 0.8f) {
+                        if (tmp.data > 0.6f) {
                             double _meas_dt = tmp.t - last_lidar_measurement_valid_time;
                             if (_meas_dt < 0.5f) {
                                 double _error_lidar = PredictBuf.rbegin()->x(2) - _meas_height - terrain_vpos;
                                 if (_error_lidar < 0.3f && _error_lidar > -0.3f) {
                                     last_lidar_measurement_valid_time = _need_to_update.t;
                                     Z_l _z;
-                                    _z(0) = _need_to_update.data;
+                                    _z(0) = T(_need_to_update.data);
                                     N_l _n;
                                     _n.setZero();
                                     X _x;
                                     _x = PredictBuf.rbegin()->x;
+                                    double _old_z = double(_x(2));
                                     P _P;
                                     _P = PredictBuf.rbegin()->P;
                                     lidar_update_core.update(_z, _x, _P, _n);
@@ -313,6 +363,13 @@ class Filter {
                                     PredictBuf.clear();
                                     PredictBuf.push_back(_p_s);
                                     // TODO: update correct bias of vio z
+                                    // double _err_vio_lidar_z = _x(2) - _meas_height - terrain_vpos;//_error_lidar;
+                                    // std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
+                                    // err_vio_lidar_z_integ += _err_vio_lidar_z;
+                                    // double _lidar_correct_gain = 0.03f/ 0.25f;
+                                    // double _lidar_correct_gain_sp = _lidar_correct_gain * _lidar_correct_gain;
+                                    // bias_vio_z = _lidar_correct_gain * _err_vio_lidar_z + _lidar_correct_gain_sp * 0.1f * err_vio_lidar_z_integ;
+                                    // std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
                                     filter_mutex.unlock();
                                     return;
                                 }
@@ -325,10 +382,10 @@ class Filter {
                         }
                     }
 
-                } else {
-                    std::cout << "[filter]: lidar update: has no predict before update" << std::endl;
-                    need_to_update_lidar ++;
-                }
+                // } else {
+                //     std::cout << "[filter]: lidar update: has no predict before update" << std::endl;
+                //     need_to_update_lidar ++;
+                // }
                 filter_mutex.unlock();
             }
         }
@@ -371,6 +428,8 @@ class Filter {
 
         double terrain_vpos;
         double last_lidar_measurement_valid_time;
+        double bias_vio_z;
+        double err_vio_lidar_z_integ;
 
         OutputPredictor<T>* outputpredictor_filter_ptr;
 

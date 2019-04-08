@@ -6,6 +6,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Vector3Stamped.h>
+#include <sensor_msgs/FluidPressure.h>
 
 class EstimatorPublisher {
     public:
@@ -23,6 +24,7 @@ class EstimatorPublisher {
             att_pub = _nh.advertise<geometry_msgs::PoseStamped>("/vio_data_rigid1/att", 100);
             ukf_pub = _nh.advertise<nav_msgs::Odometry>("/ukf/odometry", 100);
             ukf_predict_pub = _nh.advertise<nav_msgs::Odometry>("/ukf_predict/odometry", 100);
+            lidar_pub = _nh.advertise<sensor_msgs::FluidPressure>("/lidar_data", 100);
             has_register = true;
         }
 
@@ -73,6 +75,17 @@ class EstimatorPublisher {
             _tmp_msg.pose.orientation.y = -_q_att.y();
             _tmp_msg.pose.orientation.z = -_q_att.z();
             att_pub.publish(_tmp_msg);
+        }
+
+        void LidarPub(const double& _lidar_data, const double& _distant, const double& t) {
+            if (!has_register)
+                return;
+            sensor_msgs::FluidPressure _tmp_msg;
+            _tmp_msg.header.frame_id = "world";
+            _tmp_msg.header.stamp = ros::Time(t);
+            _tmp_msg.fluid_pressure = _distant;
+            _tmp_msg.variance = _lidar_data;
+            lidar_pub.publish(_tmp_msg);
         }
 
         void UkfPub(const Eigen::Vector3d& _pos, const Eigen::Vector3d& _vel, const Eigen::Vector3d& _acc,
@@ -128,6 +141,7 @@ class EstimatorPublisher {
     private:
         ros::Publisher ukf_pub;
         ros::Publisher ukf_predict_pub;
+        ros::Publisher lidar_pub;
         ros::Publisher pos_pub;
         ros::Publisher vel_pub;
         ros::Publisher acc_pub;

@@ -212,7 +212,26 @@ class Vio_update {
             P_a.block(MSRowsCount, MSRowsCount, PNSRowsCount, PNSRowsCount) = R;
             llt.compute(P_a);
             if (llt.info() != Eigen::Success) {
-                return false;
+                std::cout << "[vio_update]: P matrix is not positive cannot get squareroot" << std::endl;
+                std::cout << P_a << std::endl;
+                Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
+                Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();
+                Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _V = es.pseudoEigenvectors();
+                std::cout << "[vio_update]: P eigenvalue: " << std::endl;
+                std::cout << _D << std::endl;
+                for (int _i = 0; _i < AllStates::RowsAtCompileTime; _i ++) {
+                    if (_D(_i, _i) < T(0)) {
+                        _D(_i, _i) = T(0);
+                    }
+                }
+                std::cout << "[vio_update]: change the negative eigenvalue for squareroot: " << std::endl;
+                std::cout << _D << std::endl;
+                P_a = _V * _D * _V.inverse();
+                std::cout << "[vio_update]: get the new positive conv matrix" << std::endl;
+                std::cout << P_a << std::endl;
+                llt.compute(P_a);
+                if (llt.info() != Eigen::Success)
+                    return false;
             }
 
             SquareMatrix<T, AllStates::RowsAtCompileTime> _S = llt.matrixL().toDenseMatrix();
