@@ -358,7 +358,27 @@ class Imu_predict {
             P_a.block(MSRowsCount, MSRowsCount, PNSRowsCount, PNSRowsCount) = Q;
             llt.compute(P_a);
             if (llt.info() != Eigen::Success) {
-                return false;
+                P_a.block(0,0,MSRowsCount, MSRowsCount) = motion_model.P;
+                std::cout << "[imu_predict]: P matrix is not positive cannot get squareroot" << std::endl;
+                // std::cout << P_a << std::endl;
+                // Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
+                // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();
+                // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _V = es.pseudoEigenvectors();
+                // std::cout << "[vio_update]: P eigenvalue: " << std::endl;
+                // std::cout << _D << std::endl;
+                // for (int _i = 0; _i < AllStates::RowsAtCompileTime; _i ++) {
+                //     if (_D(_i, _i) < T(0)) {
+                //         _D(_i, _i) = T(0);
+                //     }
+                // }
+                // std::cout << "[vio_update]: change the negative eigenvalue for squareroot: " << std::endl;
+                // std::cout << _D << std::endl;
+                // P_a = _V * _D * _V.inverse();
+                // std::cout << "[vio_update]: get the new positive conv matrix" << std::endl;
+                // std::cout << P_a << std::endl;
+                llt.compute(P_a);
+                if (llt.info() != Eigen::Success)
+                    return false;
             }
 
             SquareMatrix<T, AllStates::RowsAtCompileTime> _S = llt.matrixL().toDenseMatrix();
@@ -409,6 +429,17 @@ class Imu_predict {
             // temp_all_state(MotionModel<T>::Ms::psI) = T(_att_euler_1(0));
 
             x = temp_all_state.head(MSRowsCount);
+            Eigen::Quaterniond _tmp_q;
+            _tmp_q.w() = double(x(6));
+            _tmp_q.x() = double(x(7));
+            _tmp_q.y() = double(x(8));
+            _tmp_q.z() = double(x(9));
+            _tmp_q.normalized();
+            x(6) = T(_tmp_q.w());
+            x(7) = T(_tmp_q.x());
+            x(8) = T(_tmp_q.y());
+            x(9) = T(_tmp_q.z());
+
         }
 
         void computeCovarianceFromSigmaPoints() {
