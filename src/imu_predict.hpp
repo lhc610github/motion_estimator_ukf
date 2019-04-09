@@ -287,6 +287,9 @@ class Imu_predict {
         typedef Matrix<T, StateRowsCount, SigmaPointCount> SigmaPoints;
         typedef Matrix<T, MSRowsCount, MSRowsCount> StateCovariance;
         typedef Matrix<T, PNSRowsCount, PNSRowsCount> NoiseCovariance;
+        typedef CovarianceSquareRoot<AllStates> CovarianceSR;
+        typedef CovarianceSquareRoot<MotionStates> StateCovarianceSR;
+        typedef CovarianceSquareRoot<NoiseStates> NoiseCovarianceSR;
 
         void init(const MotionStates& tmp) {
             x = tmp;
@@ -296,10 +299,12 @@ class Imu_predict {
 
         void reset() {
             // P.setIdentity();
-            P = motion_model.P;
+            // P = motion_model.P;
+            S.compute(motion_model.P);
             // Q.setIdentity();
             // Q *= T(0.01f);
-            Q = motion_model.Q;
+            // Q = motion_model.Q;
+            SQ.compute(motion_model.Q);
             x.setZero();
             alpha = T(0.6f);    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
             beta = T(2.0f);     //!< Parameter for prior knowledge about the distribution (\f$ \beta = 2 \f$ is optimal for Gaussian)
@@ -309,7 +314,11 @@ class Imu_predict {
         }
 
         StateCovariance get_P() {
-            return P;
+            Matrix<T, MSRowsCount, MSRowsCount> _tmp;
+            _tmp = S.matrixU().toDenseMatrix();
+            Matrix<T, MSRowsCount, MSRowsCount> _tmp_P;
+            _tmp_P = _tmp.transpose() * _tmp;
+            return _tmp_P;
         }
 
         MotionStates get_x() {
@@ -317,7 +326,7 @@ class Imu_predict {
         }
 
         void update_P_x(const StateCovariance& tmp1, const MotionStates& tmp2) {
-            P = tmp1;
+            S.compute(tmp1);
             x = tmp2;
         }
 
@@ -334,54 +343,30 @@ class Imu_predict {
             //Compute sigma points
             if (!computeSigmaPoints(v)) {
                 std::cout << "[predict]: SigmaPoints cal wrong" << std::endl;
-                P = motion_model.P;
-                Q = motion_model.Q;
-                computeSigmaPoints(v);
                 return false;
             }
             //Compute predicted state
             computeStatePrediction(u, dt);
             //Compute predicted covariance
-            computeCovarianceFromSigmaPoints();
+            if (!computeCovarianceFromSigmaPoints()) {
+                std::cout << "[predict]: conv cal wrong" << std::endl;
+                return false;
+            }
 
             _tmp_x = x;
-            _tmp_P = P;
+            Matrix<T, MSRowsCount, MSRowsCount> _tmp;
+            _tmp = S.matrixU().toDenseMatrix();
+            _tmp_P = _tmp.transpose() * _tmp;
             
             return true;
         }
 
         bool computeSigmaPoints(const typename MotionModel<T>::Imn& v) {
-            CovarianceSquareRoot<AllStates> llt;
-            SquareMatrix<T, AllStates::RowsAtCompileTime> P_a;
-            P_a.setZero();
-            P_a.block(0,0,MSRowsCount, MSRowsCount) = P;
-            P_a.block(MSRowsCount, MSRowsCount, PNSRowsCount, PNSRowsCount) = Q;
-            llt.compute(P_a);
-            if (llt.info() != Eigen::Success) {
-                P_a.block(0,0,MSRowsCount, MSRowsCount) = motion_model.P;
-                std::cout << "[imu_predict]: P matrix is not positive cannot get squareroot" << std::endl;
-                // std::cout << P_a << std::endl;
-                // Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
-                // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();
-                // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _V = es.pseudoEigenvectors();
-                // std::cout << "[vio_update]: P eigenvalue: " << std::endl;
-                // std::cout << _D << std::endl;
-                // for (int _i = 0; _i < AllStates::RowsAtCompileTime; _i ++) {
-                //     if (_D(_i, _i) < T(0)) {
-                //         _D(_i, _i) = T(0);
-                //     }
-                // }
-                // std::cout << "[vio_update]: change the negative eigenvalue for squareroot: " << std::endl;
-                // std::cout << _D << std::endl;
-                // P_a = _V * _D * _V.inverse();
-                // std::cout << "[vio_update]: get the new positive conv matrix" << std::endl;
-                // std::cout << P_a << std::endl;
-                llt.compute(P_a);
-                if (llt.info() != Eigen::Success)
-                    return false;
-            }
 
-            SquareMatrix<T, AllStates::RowsAtCompileTime> _S = llt.matrixL().toDenseMatrix();
+            SquareMatrix<T, AllStates::RowsAtCompileTime> _S;
+            _S.setZero();
+            _S.block(0,0,MSRowsCount, MSRowsCount) = S.matrixU().toDenseMatrix();
+            _S.block(MSRowsCount, MSRowsCount, PNSRowsCount, PNSRowsCount) = SQ.matrixU().toDenseMatrix();
             Vector<T, StateRowsCount> all_x;
             all_x << x, v;
             sigmaStatePoints.template leftCols<1>() = all_x;
@@ -408,26 +393,6 @@ class Imu_predict {
 
         void computePredictionFromSigmaPoints() {
             AllStates temp_all_state = sigmaStatePoints * sigmaWm;
-            // Vector<T, MotionModel<T>::Ms.phI>temp_all_state1 = sigmaStatePoints.block(0,0,MotionModel<T>::Ms.phI,SigmaPointCount) * sigmaWm;
-            // Eigen::Matrix3d temp_sum_R;
-            // temp_sum_R.setZero();
-            // for (int i = 0; i < SigmaPointCount; ++i) {
-            //     Vector<T, 3> _att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
-            //     // std::cout << temp_att_state.transpose() << std::endl;
-
-            //     Eigen::Matrix3d _R;
-            //     _R = Eigen::AngleAxisd(double(_att(2)), Eigen::Vector3d::UnitZ())
-            //         * Eigen::AngleAxisd(double(_att(1)), Eigen::Vector3d::UnitY())
-            //         * Eigen::AngleAxisd(double(_att(0)), Eigen::Vector3d::UnitX());
-                
-            //     temp_sum_R += (double)sigmaWm(i) * _R;
-            // }
-            // temp_sum_R.normalized();
-            // Eigen::Vector3d _att_euler_1 = temp_sum_R.eulerAngles(2,1,0);
-            // temp_all_state(MotionModel<T>::Ms::phI) = T(_att_euler_1(2));
-            // temp_all_state(MotionModel<T>::Ms::thE) = T(_att_euler_1(1));
-            // temp_all_state(MotionModel<T>::Ms::psI) = T(_att_euler_1(0));
-
             x = temp_all_state.head(MSRowsCount);
             Eigen::Quaterniond _tmp_q;
             _tmp_q.w() = double(x(6));
@@ -439,42 +404,25 @@ class Imu_predict {
             x(7) = T(_tmp_q.x());
             x(8) = T(_tmp_q.y());
             x(9) = T(_tmp_q.z());
-
         }
 
-        void computeCovarianceFromSigmaPoints() {
-            Matrix<T, MSRowsCount, SigmaPointCount> W = sigmaWc.transpose().template replicate<MSRowsCount, 1>();
+        bool computeCovarianceFromSigmaPoints() {
+            // Matrix<T, MSRowsCount, SigmaPointCount> W = sigmaWc.transpose().template replicate<MSRowsCount, 1>();
             Matrix<T, MSRowsCount, SigmaPointCount> tmp_sp = sigmaStatePoints.block(0, 0, MSRowsCount, SigmaPointCount);
-            Matrix<T, MSRowsCount, SigmaPointCount> tmp = (tmp_sp.colwise() - x);
-            // Vector<T, 3> _x_att = x.block(MotionModel<T>::Ms::phI, 0, 3, 1);
-            // Eigen::Matrix3d _x_R;
-            // _x_R = Eigen::AngleAxisd(double(_x_att(2)), Eigen::Vector3d::UnitZ())
-            //     * Eigen::AngleAxisd(double(_x_att(1)), Eigen::Vector3d::UnitY())
-            //     * Eigen::AngleAxisd(double(_x_att(0)), Eigen::Vector3d::UnitX());
+            Matrix<T, MSRowsCount, SigmaPointCount> tmp_1 = (tmp_sp.colwise() - x);
 
-            // for (int i = 0; i < SigmaPointCount; ++i) {
-            //     Vector<T, 3> _sp_att = sigmaStatePoints.col(i).block(MotionModel<T>::Ms::phI, 0, 3, 1);
-            //     Eigen::Matrix3d _sp_R;
-            //     _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
-            //         * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
-            //         * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
-                     
-            //     Eigen::Matrix3d temp_eR;
-            //     temp_eR = (_x_R.transpose()*_sp_R - _sp_R.transpose()*_x_R) / 2.0f;
-            //     // Eigen::Matrix3d temp_eR = _x_R.transpose() *_sp_R;
+            Matrix<T, 3*StateRowsCount, MSRowsCount> tmp;
+            tmp.template topRows<2*StateRowsCount>() = std::sqrt(sigmaWc[1]) * (tmp_1.template rightCols<SigmaPointCount-1>()).transpose();
+            // tmp.template bottomRows<MSRowsCount>() = SQ.matrixU().toDenseMatrix();
 
-            //     // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
+            Eigen::HouseholderQR<decltype(tmp)> qr(tmp);
 
-            //     tmp(MotionModel<T>::Ms::phI, i) = T(temp_eR(2,1));
-            //     tmp(MotionModel<T>::Ms::thE, i) = T(temp_eR(0,2));
-            //     tmp(MotionModel<T>::Ms::psI, i) = T(temp_eR(1,0));
-            //     // tmp(MotionModel<T>::Ms::phI, i) = T(temp_ee(2));
-            //     // tmp(MotionModel<T>::Ms::thE, i) = T(temp_ee(1));
-            //     // tmp(MotionModel<T>::Ms::psI, i) = T(temp_ee(0));
-            //     // std::cout << "tmp[:,"<<i <<"]:" << tmp.col(i).transpose() << std::endl;
-            // }
-            
-            P = tmp.cwiseProduct(W) * tmp.transpose();
+            S.setU(qr.matrixQR().template topRightCorner<MSRowsCount, MSRowsCount>());
+
+            T nu = sigmaWc[0];
+            S.rankUpdate( tmp_1.template leftCols<1>(), nu);
+
+            return (S.info() == Eigen::Success);
         }
 
         void computeWeights() {
@@ -504,8 +452,10 @@ class Imu_predict {
         SigmaPoints sigmaStatePoints;
         MotionStates x; 
         // NoiseStates v;
-        StateCovariance P;
-        NoiseCovariance Q;
+        // StateCovariance P;
+        StateCovarianceSR S;
+
+        NoiseCovarianceSR SQ;
 
         // Weight parameters
         T alpha;    //!< Scaling parameter for spread of sigma points (usually \f$ 1E-4 \leq \alpha \leq 1 \f$)
