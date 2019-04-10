@@ -150,9 +150,9 @@ class MotionModel {
         MotionModel() {
             one_g << 0, 0, 9.871f;
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
-            P_vector << 0.003, 0.003, 0.003, 0.001, 0.001, 0.001, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
+            P_vector << 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
             // P_vector << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
-            P_vector /=10;
+            // P_vector *=10;
             P = P_vector.asDiagonal();
             Kalman::Vector<T, Imn::RowsAtCompileTime> Q_vector;
             Q_vector << 0.1, 0.1, 0.1, 0.03, 0.03, 0.03, 0.00000000001, 0.00000000001, 0.00000000001, 0.0000000001, 0.0000000001, 0.0000000001;
@@ -334,9 +334,6 @@ class Imu_predict {
             //Compute sigma points
             if (!computeSigmaPoints(v)) {
                 std::cout << "[predict]: SigmaPoints cal wrong" << std::endl;
-                P = motion_model.P;
-                Q = motion_model.Q;
-                computeSigmaPoints(v);
                 return false;
             }
             //Compute predicted state
@@ -359,7 +356,7 @@ class Imu_predict {
             llt.compute(P_a);
             if (llt.info() != Eigen::Success) {
                 P_a.block(0,0,MSRowsCount, MSRowsCount) = motion_model.P;
-                std::cout << "[imu_predict]: P matrix is not positive cannot get squareroot" << std::endl;
+                std::cout << "\033[33m" << "[imu_predict]: P matrix is not positive cannot get squareroot" << "\033[0m" << std::endl;
                 // std::cout << P_a << std::endl;
                 // Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
                 // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();
@@ -368,7 +365,7 @@ class Imu_predict {
                 // std::cout << _D << std::endl;
                 // for (int _i = 0; _i < AllStates::RowsAtCompileTime; _i ++) {
                 //     if (_D(_i, _i) < T(0)) {
-                //         _D(_i, _i) = T(0);
+                //         _D(_i, _i) = motion_model.P(_i, _i);//T(0);
                 //     }
                 // }
                 // std::cout << "[vio_update]: change the negative eigenvalue for squareroot: " << std::endl;

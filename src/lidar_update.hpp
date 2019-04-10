@@ -45,9 +45,9 @@ class LidarMeasurementModel {
 
         LidarMeasurementModel() {
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
-            P_vector << 0.003, 0.003, 0.003, 0.001, 0.001, 0.001, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
+            P_vector << 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
             // P_vector << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
-            P_vector /=10;
+            // P_vector /=10;
             P = P_vector.asDiagonal();
             // P.Identity();
             Kalman::Vector<T, Lmn::RowsAtCompileTime> R_vector;
@@ -136,9 +136,10 @@ class Lidar_update {
             // std::cout << "eP:" << std::endl;
             // std::cout << P - P_k_1 << std::endl;
 
-            x_k_1(2) = x(2);
-            P_k_1(2, 2) = P(2, 2);
-
+            // x_k_1(2) = x(2);
+            // P_k_1(2, 2) = P(2, 2);
+            x_k_1 = x;
+            P_k_1 = P;
         }
 
         bool computeSigmaPoints(const typename LidarMeasurementModel<T>::Lmn& n) {
@@ -150,7 +151,8 @@ class Lidar_update {
             llt.compute(P_a);
             if (llt.info() != Eigen::Success) {
                 P_a.block(0,0,MSRowsCount, MSRowsCount) = lmmodel.P;
-                std::cout << "[lidar_update]: P matrix is not positive cannot get squareroot" << std::endl;
+                // std::cout << "[lidar_update]: P matrix is not positive cannot get squareroot" << std::endl;
+                std::cout << "\033[33m" << "[lidar_update]: P matrix is not positive cannot get squareroot" << "\033[0m" << std::endl;
                 // std::cout << P_a << std::endl;
                 // Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
                 // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();

@@ -98,9 +98,9 @@ class VioMeasurementModel {
             Kalman::Vector<T, Ms::RowsAtCompileTime> P_vector;
             // P_vector << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
             // P = P_vector.asDiagonal();
-            P_vector << 0.003, 0.003, 0.003, 0.001, 0.001, 0.001, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
+            P_vector << 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
             // P_vector << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.00001, 0.00001, 0.000001, 0.000001, 0.000001, 0.000001;
-            P_vector /=10;
+            // P_vector /=10;
             P = P_vector.asDiagonal();
             // P.Identity();
             Kalman::Vector<T, Vmn::RowsAtCompileTime> R_vector;
@@ -217,7 +217,8 @@ class Vio_update {
             llt.compute(P_a);
             if (llt.info() != Eigen::Success) {
                 P_a.block(0,0,MSRowsCount, MSRowsCount) = vmmodel.P;
-                std::cout << "[vio_update]: P matrix is not positive cannot get squareroot" << std::endl;
+                std::cout << "\033[33m" << "[vio_update]: P matrix is not positive cannot get squareroot" << "\033[0m" << std::endl;
+                // std::cout << "[vio_update]: P matrix is not positive cannot get squareroot" << std::endl;
                 // std::cout << P_a << std::endl;
                 // Eigen::EigenSolver<Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime>> es(P_a);
                 // Matrix<T, AllStates::RowsAtCompileTime, AllStates::RowsAtCompileTime> _D = es.pseudoEigenvalueMatrix();
@@ -269,16 +270,18 @@ class Vio_update {
 
         void computePredictionFromSigmaPoints() {
             y_predict = sigmaMeasurePoints * sigmaWm;
-            Eigen::Quaterniond _tmp_q;
-            _tmp_q.w() = double(y_predict(6));
-            _tmp_q.x() = double(y_predict(7));
-            _tmp_q.y() = double(y_predict(8));
-            _tmp_q.z() = double(y_predict(9));
-            _tmp_q.normalized();
-            y_predict(6) = T(_tmp_q.w());
-            y_predict(7) = T(_tmp_q.x());
-            y_predict(8) = T(_tmp_q.y());
-            y_predict(9) = T(_tmp_q.z());
+
+            // Eigen::Quaterniond _tmp_q;
+            // _tmp_q.w() = double(y_predict(6));
+            // _tmp_q.x() = double(y_predict(7));
+            // _tmp_q.y() = double(y_predict(8));
+            // _tmp_q.z() = double(y_predict(9));
+            // _tmp_q.normalized();
+            // y_predict(6) = T(_tmp_q.w());
+            // y_predict(7) = T(_tmp_q.x());
+            // y_predict(8) = T(_tmp_q.y());
+            // y_predict(9) = T(_tmp_q.z());
+
             // std::cout <<"[update]: y_predict" << std::endl;
             // std::cout << y_predict.transpose() << std::endl;
         }

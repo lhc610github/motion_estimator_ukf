@@ -37,6 +37,30 @@ class Filter {
         }
 
         void init_filter(const vio_data& tmp) {
+
+            if (ImuBuf.size() < 200) {
+                return;
+            }
+
+            Eigen::Vector3d _tmp_acc;
+            _tmp_acc.setZero();
+            Eigen::Vector3d _tmp_gyro;
+            _tmp_gyro.setZero();
+
+            for (int _i = 0; _i < ImuBuf.size(); _i++) {
+                _tmp_acc += ImuBuf[_i].acc;
+                _tmp_gyro += ImuBuf[_i].gyro;
+            }
+
+            _tmp_acc /= ImuBuf.size();
+            _tmp_gyro /= ImuBuf.size();
+
+            Eigen::Matrix3d _tmp_R = tmp.att.normalized().toRotationMatrix();
+            Eigen::Vector3d _tmp_g{0,0,9.8655};
+
+            Eigen::Vector3d _tmp_bias_acc = _tmp_acc - _tmp_R.transpose() * _tmp_g;
+            Eigen::Vector3d _tmp_bias_gyro = _tmp_gyro;
+
             X _init_x;
             _init_x.setZero();
             _init_x.px() = T(tmp.pos(0));
@@ -49,6 +73,12 @@ class Filter {
             _init_x.qx() = T(tmp.att.x());
             _init_x.qy() = T(tmp.att.y());
             _init_x.qz() = T(tmp.att.z());
+            _init_x.bax() = T(_tmp_bias_acc(0));
+            _init_x.bay() = T(_tmp_bias_acc(1));
+            _init_x.baz() = T(_tmp_bias_acc(2));
+            _init_x.bwx() = T(_tmp_bias_gyro(0));
+            _init_x.bwy() = T(_tmp_bias_gyro(1));
+            _init_x.bwz() = T(_tmp_bias_gyro(2));
             filter_mutex.lock();
             predict_core.init(_init_x);
             predict_state<T> tmp_pre;
@@ -103,7 +133,7 @@ class Filter {
                 typename Kalman::Imu_predict<T>::MotionStates _x;
                 typename Kalman::Imu_predict<T>::StateCovariance _P;
                 double _dt = ImuBuf[_i].t - PredictBuf.rbegin()->t;
-                if (_dt < 0.0) {
+                if (_dt < -0.5) {
                     std::cout << "[filter]: predict dt < 0 ? : " << _dt << std::endl;
                     std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
                     // _dt = 0.001f;
@@ -116,6 +146,8 @@ class Filter {
                     restart_filter();
                     filter_mutex.unlock();
                     return;
+                } else if (_dt < 0.0f) {
+                    _dt = 0.001f;
                 }
 
                 PredictIndex++;
@@ -149,6 +181,8 @@ class Filter {
                 _u.wz() = _mid_filter_data.gyro(2);//ImuBuf[_i].gyro(2);
                 V _v;
                 _v.setZero();
+
+                // std::cout << "[filter]: PredictBufsize:" << PredictBuf.size() << std::endl;
 
                 if (!predict_core.predict(_u, _v, T(_dt), _P, _x)) {
                     std::cout << "[filter]: predict wrong!" << std::endl;
@@ -188,13 +222,13 @@ class Filter {
                 if (need_to_update_vio > 0) {
                     process_vio_update(VioBuf[VioBuf.size() - need_to_update_vio]);
                     need_to_update_vio--;
-                    std::cout << "[filter]: vio update after predict process" << std::endl;
+                    // std::cout << "[filter]: vio update after predict process" << std::endl;
                 }
 
                 if (need_to_update_lidar > 0) {
                     process_lidar_update(LidarBuf[LidarBuf.size() - need_to_update_lidar]);
                     need_to_update_lidar--;
-                    std::cout << "[filter]: lidar update after predict process" << std::endl;
+                    // std::cout << "[filter]: lidar update after predict process" << std::endl;
                 }
 
             }
@@ -221,7 +255,7 @@ class Filter {
                 // if (_PBUF_SIZE > 1) {
                     for (int _i = 0; _i < _PBUF_SIZE; _i++) {
                         double _dt = tmp.t - PredictBuf[_PBUF_SIZE - 1 - _i].t;
-                        if (_dt > 0.0f ) {
+                        if (_dt > 0.0f || _i == _PBUF_SIZE-1) {
                             Z _z;
                             _z.px() = T(tmp.pos(0));
                             _z.py() = T(tmp.pos(1));
@@ -253,7 +287,7 @@ class Filter {
                         }
                     }
                 // } else {
-                //     std::cout << "[filter]: vio update: has no predict before update" << std::endl;
+                //     // std::cout << "[filter]: vio update: has no predict before update" << std::endl;
                 //     need_to_update_vio ++;
                 // }
 
@@ -282,7 +316,7 @@ class Filter {
                         if (_tmp_R(2,2) > 0.8f) {
                         // std::cout << "hello3" << std::endl;
                             if (_tmp_lidar.data > 0.7) {
-                                double _meas_distant = -0.02f * _tmp_R(2,0) - 0.05f * _tmp_R(2,1) + _tmp_lidar.data * _tmp_R(2,2);
+                                double _meas_distant = -0.02f * _tmp_R(2,0) - 0.05f * _tmp_R(2,1) + (_tmp_lidar.data + 0.11f) * _tmp_R(2,2);
                                 double _err_vio_lidar_z = tmp.pos(2) - bias_vio_z - _meas_distant - terrain_vpos;//_error_lidar;
                                 // std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
                                 err_vio_lidar_z_integ += _err_vio_lidar_z;
@@ -310,7 +344,7 @@ class Filter {
         void process_lidar_update(lidar_data tmp) {
             if (has_first_predict) {
                 filter_mutex.lock();
-                // int _PBUF_SIZE = PredictBuf.size();
+                int _PBUF_SIZE = PredictBuf.size();
                 // if (_PBUF_SIZE > 1) {
                     for (int _i = LidarBuf.size()-1; _i >=0; _i--) {
                         if (_i == 0) {
@@ -334,7 +368,7 @@ class Filter {
                     double _R_21 = _temp_R(2,1);
                     double _R_20 = _temp_R(2,0);
                     if (_R_22 > 0.8f) {
-                        double _meas_height = - 0.02f * _R_20 - 0.05f * _R_21 + tmp.data * _R_22;
+                        double _meas_height = - 0.02f * _R_20 - 0.05f * _R_21 + (tmp.data + 0.11f)* _R_22;
                         estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height + terrain_vpos, tmp.t);
                         lidar_data _need_to_update;
                         _need_to_update.t = tmp.t;
@@ -383,7 +417,7 @@ class Filter {
                     }
 
                 // } else {
-                //     std::cout << "[filter]: lidar update: has no predict before update" << std::endl;
+                //     // std::cout << "[filter]: lidar update: has no predict before update" << std::endl;
                 //     need_to_update_lidar ++;
                 // }
                 filter_mutex.unlock();
