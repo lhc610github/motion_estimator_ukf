@@ -184,7 +184,7 @@ class MotionModel {
             _att_q.x() = double(x_k.qx());
             _att_q.y() = double(x_k.qy());
             _att_q.z() = double(x_k.qz());
-            _att_q.normalized();
+            _att_q.normalize();
 
 
             Eigen::Vector3d _acc_m;
@@ -204,7 +204,7 @@ class MotionModel {
                                 * Eigen::AngleAxisd(_w(1)*double(dt), Eigen::Vector3d::UnitY())
                                 * Eigen::AngleAxisd(_w(0)*double(dt), Eigen::Vector3d::UnitX());
             Eigen::Quaterniond _att_tmp = _att_q * _dq;
-            _att_tmp.normalized();
+            _att_tmp.normalize();
             _R = _att_tmp.toRotationMatrix();
 
             // std::cout << _R << std::endl;
@@ -220,7 +220,7 @@ class MotionModel {
             // _delta_R(2,1) = _w(0) * double(dt);
 
             // _R *= _delta_R;
-            // _R.normalized();
+            // _R.normalize();
 
             // std::cout << "after rotation" << std::endl;
             // std::cout << _R << std::endl;
@@ -419,7 +419,7 @@ class Imu_predict {
                 
             //     temp_sum_R += (double)sigmaWm(i) * _R;
             // }
-            // temp_sum_R.normalized();
+            // temp_sum_R.normalize();
             // Eigen::Vector3d _att_euler_1 = temp_sum_R.eulerAngles(2,1,0);
             // temp_all_state(MotionModel<T>::Ms::phI) = T(_att_euler_1(2));
             // temp_all_state(MotionModel<T>::Ms::thE) = T(_att_euler_1(1));
@@ -431,7 +431,7 @@ class Imu_predict {
             _tmp_q.x() = double(x(7));
             _tmp_q.y() = double(x(8));
             _tmp_q.z() = double(x(9));
-            _tmp_q.normalized();
+            _tmp_q.normalize();
             x(6) = T(_tmp_q.w());
             x(7) = T(_tmp_q.x());
             x(8) = T(_tmp_q.y());

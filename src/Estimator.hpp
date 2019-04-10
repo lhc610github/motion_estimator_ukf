@@ -311,7 +311,7 @@ class Filter {
                         _tmp_q.x() = double(tmp.att.x());
                         _tmp_q.y() = double(tmp.att.y());
                         _tmp_q.z() = double(tmp.att.z());
-                        _tmp_q.normalized();
+                        _tmp_q.normalize();
                         Eigen::Matrix3d _tmp_R = _tmp_q.toRotationMatrix();
                         if (_tmp_R(2,2) > 0.8f) {
                         // std::cout << "hello3" << std::endl;

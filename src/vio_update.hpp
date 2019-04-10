@@ -127,7 +127,7 @@ class VioMeasurementModel {
             _att_q.z() = double(x_k_1.qz());
 
             Eigen::Quaterniond _att_tmp = _att_q * _dq;
-            _att_tmp.normalized();
+            _att_tmp.normalize();
 
             y_k_1.qw() = T(_att_tmp.w());
             y_k_1.qx() = T(_att_tmp.x());
@@ -276,7 +276,7 @@ class Vio_update {
             // _tmp_q.x() = double(y_predict(7));
             // _tmp_q.y() = double(y_predict(8));
             // _tmp_q.z() = double(y_predict(9));
-            // _tmp_q.normalized();
+            // _tmp_q.normalize();
             // y_predict(6) = T(_tmp_q.w());
             // y_predict(7) = T(_tmp_q.x());
             // y_predict(8) = T(_tmp_q.y());
@@ -311,18 +311,18 @@ class Vio_update {
             // _z_att.x() = z.qx();
             // _z_att.y() = z.qy();
             // _z_att.z() = z.qz();
-            // _z_att.normalized();
+            // _z_att.normalize();
 
             // Eigen::Quaterniond _y_att;
             // _y_att.w() = y_predict.qw();
             // _y_att.x() = y_predict.qx();
             // _y_att.y() = y_predict.qy();
             // _y_att.z() = y_predict.qz();
-            // _y_att.normalized();
+            // _y_att.normalize();
 
             // Eigen::Quaterniond _q_att_inv = _z_att.inverse();
             // Eigen::Quaterniond _delta_att = _q_att_inv * _y_att;
-            // _delta_att.normalized();
+            // _delta_att.normalize();
             // double _scalar;
             // if (_delta_att.w() >= 0.0f) {
             //     _scalar = -2.0f;
@@ -371,7 +371,7 @@ class Vio_update {
             _tmp_q.x() = double(x(7));
             _tmp_q.y() = double(x(8));
             _tmp_q.z() = double(x(9));
-            _tmp_q.normalized();
+            _tmp_q.normalize();
             x(6) = T(_tmp_q.w());
             x(7) = T(_tmp_q.x());
             x(8) = T(_tmp_q.y());

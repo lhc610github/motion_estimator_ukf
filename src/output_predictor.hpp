@@ -195,7 +195,7 @@ class OutputPredictor {
                 _q_norm.x() = _x(7);
                 _q_norm.y() = _x(8);
                 _q_norm.z() = _x(9);
-                _q_norm.normalized();
+                _q_norm.normalize();
 
                 Eigen::Vector3d _pos_err = _pos - OutputBuf[_output_update_index].pos;
                 Eigen::Vector3d _vel_err = _vel - OutputBuf[_output_update_index].vel;
@@ -218,7 +218,7 @@ class OutputPredictor {
 
                 Eigen::Quaterniond quat_inv = _q_norm.inverse();
                 Eigen::Quaterniond _q_err = quat_inv * OutputBuf[_output_update_index].q_norm;
-                _q_err.normalized();
+                _q_err.normalize();
                 double _scalar;
                 if (_q_err.w() >= 0.0f) {
                     _scalar = -2.0f;
