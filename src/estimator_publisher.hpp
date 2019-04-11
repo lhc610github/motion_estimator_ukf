@@ -28,7 +28,7 @@ class EstimatorPublisher {
             has_register = true;
         }
 
-        void PosPub(const Eigen::Vector3d& _pos, double _t) {
+        void PosPub(const Eigen::Vector3d& _pos, const Eigen::Quaterniond& _q_att, double _t) {
             if (!has_register)
                 return;
             geometry_msgs::PoseStamped _tmp_msg;
@@ -37,6 +37,10 @@ class EstimatorPublisher {
             _tmp_msg.pose.position.x = _pos(0);
             _tmp_msg.pose.position.y = -_pos(1);
             _tmp_msg.pose.position.z = -_pos(2);
+            _tmp_msg.pose.orientation.w = _q_att.w();
+            _tmp_msg.pose.orientation.x = _q_att.x();
+            _tmp_msg.pose.orientation.y = -_q_att.y();
+            _tmp_msg.pose.orientation.z = -_q_att.z();
             pos_pub.publish(_tmp_msg);
         }
 
@@ -126,7 +130,7 @@ class EstimatorPublisher {
             _tmp_msg.twist.twist.linear.y = _vel(1);
             _tmp_msg.twist.twist.linear.z = _vel(2);
             ukf_predict_pub.publish(_tmp_msg);
-            PosPub(_pos, _t);
+            PosPub(_pos, _q, _t);
             VelPub(_vel, _t);
             AccPub(_acc, _t);
             AttPub(_q, _t);
