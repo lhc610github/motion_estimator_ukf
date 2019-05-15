@@ -3,10 +3,13 @@
 #include "Types.hpp"
 
 #include "ros/ros.h"
+#include <tf/tf.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <sensor_msgs/FluidPressure.h>
+#include <cmath>
 
 class EstimatorPublisher {
     public:
@@ -139,6 +142,37 @@ class EstimatorPublisher {
                             _pos(0), _pos(1), _pos(2),
                             _vel(0), _vel(1), _vel(2),
                               _q.w(), _q.x(), _q.y(), _q.z()  );
+
+
+            /* tf broadcast process */
+            static tf2_ros::TransformBroadcaster _odom_br;
+            static tf2_ros::TransformBroadcaster _odom_only_yaw_br;
+
+            geometry_msgs::TransformStamped _transformStamped;
+
+            _transformStamped.header = _tmp_msg.header;
+            _transformStamped.child_frame_id = "vio_test/velodyne";
+            _transformStamped.transform.translation.x = _tmp_msg.pose.pose.position.x;
+            _transformStamped.transform.translation.y = _tmp_msg.pose.pose.position.y;
+            _transformStamped.transform.translation.z = _tmp_msg.pose.pose.position.z;
+            _transformStamped.transform.rotation.w = _tmp_msg.pose.pose.orientation.w;
+            _transformStamped.transform.rotation.x = _tmp_msg.pose.pose.orientation.x;
+            _transformStamped.transform.rotation.y = _tmp_msg.pose.pose.orientation.y;
+            _transformStamped.transform.rotation.z = _tmp_msg.pose.pose.orientation.z;
+            _odom_br.sendTransform(_transformStamped);
+
+
+            geometry_msgs::TransformStamped _transformStamped2;
+            _transformStamped2.header = _transformStamped.header;
+            _transformStamped2.child_frame_id = "vio_test_with_yaw";
+            _transformStamped2.transform.translation = _transformStamped.transform.translation;
+            _transformStamped2.transform.translation.z = 0.0f;
+            double _yaw = tf::getYaw(_tmp_msg.pose.pose.orientation);
+            _transformStamped2.transform.rotation.w = std::cos(_yaw / 2);
+            _transformStamped2.transform.rotation.x = 0.0f;
+            _transformStamped2.transform.rotation.y = 0.0f;
+            _transformStamped2.transform.rotation.z = std::sin(_yaw / 2);
+            _odom_only_yaw_br.sendTransform(_transformStamped2);
 
         }
 
