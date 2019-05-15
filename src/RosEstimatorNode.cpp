@@ -56,10 +56,10 @@ int main(int argc, char** argv) {
     _estimator_publisher.PublisherRegist(node);
     filter_core_ptr = new Filter<T>();
     filter_core_ptr->set_publish(_estimator_publisher);
-    ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_imu = node.subscribe("/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     // ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
-    ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_raw", 10, lidar_cb);
+    // ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_raw", 10, lidar_cb);
     ros::spin();
     // ros::AsyncSpinner spinner(4);
     // spinner.start();

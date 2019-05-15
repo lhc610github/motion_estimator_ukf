@@ -47,8 +47,8 @@ class OutputPredictor {
             pos_err_integ.setZero();
             vel_err_integ.setZero();
             delta_angle_corr.setZero();
-            vel_gain = 0.011f/ 0.25f;
-            pos_gain = 0.010f/ 0.25f;
+            vel_gain = 0.018f/ 0.25f;
+            pos_gain = 0.012f/ 0.25f;
             vel_gain_sp = vel_gain * vel_gain;
             pos_gain_sp = pos_gain * pos_gain;
         }
@@ -227,7 +227,7 @@ class OutputPredictor {
                 }
                 Eigen::Vector3d _delta_ang_err;
                 _delta_ang_err << _scalar*_q_err.x(), _scalar*_q_err.y(), _scalar*_q_err.z();
-                double _att_gain = 1.0f / 10.0f; 
+                double _att_gain = 1.0f / 10.0f;
                 delta_angle_corr = _att_gain * _delta_ang_err;
 
                 for (int _i = 0; _i < OutputBuf.size(); _i++) {
