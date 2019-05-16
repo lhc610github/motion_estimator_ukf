@@ -35,9 +35,20 @@ void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
     tmp_q.x() = vio_msg->pose.pose.orientation.x;
     tmp_q.y() = vio_msg->pose.pose.orientation.y;
     tmp_q.z() = vio_msg->pose.pose.orientation.z;
+    // if (tmp_q.w() < 0) {
+    //     tmp_q.w() = -tmp_q.w();
+    //     tmp_q.x() = -tmp_q.x();
+    //     tmp_q.y() = -tmp_q.y();
+    //     tmp_q.z() = -tmp_q.z();
+    // }
+    tmp_q.normalize();
     // Eigen::Matrix3d tmp_R = tmp_q.toRotationMatrix();
     // Eigen::Vector3d tmp_e = tmp_R.eulerAngles(2,1,0);
-    // std::cout <<"in :R"<< tmp_R << std::endl;
+    // tmp_q = Eigen::AngleAxisd(tmp_e(2), Eigen::Vector3d::UnitZ())
+    //                             * Eigen::AngleAxisd(tmp_e(1), Eigen::Vector3d::UnitY())
+    //                             * Eigen::AngleAxisd(tmp_e(0), Eigen::Vector3d::UnitX());
+    // tmp_q = tmp_R;
+    // // std::cout <<"in :R"<< tmp_R << std::endl;
     tmp_data.att = tmp_q;
     filter_core_ptr->input_vio(tmp_data);
 }
@@ -56,7 +67,7 @@ int main(int argc, char** argv) {
     _estimator_publisher.PublisherRegist(node);
     filter_core_ptr = new Filter<T>();
     filter_core_ptr->set_publish(_estimator_publisher);
-    ros::Subscriber sub_imu = node.subscribe("/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     // ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
     // ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_raw", 10, lidar_cb);

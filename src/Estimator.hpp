@@ -19,9 +19,9 @@ class Filter {
             ImuBuf_Size = 500;
             has_regist_publisher = false;
             // Delay_Size = 80;
-            int Delay_output_period = 16;
+            int Delay_output_period = 12;
             PredictBuf_Size = 60;
-            OutputPeriodCount = 3;
+            OutputPeriodCount = 7;
             Delay_Size = Delay_output_period * OutputPeriodCount;
             PredictIndex = 0;
             outputpredictor_filter_ptr = new OutputPredictor<T>(Delay_output_period, OutputPeriodCount);

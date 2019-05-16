@@ -307,17 +307,44 @@ class Vio_update {
             MeasureStates tmp = z - y_predict;
 
             // Eigen::Quaterniond _z_att;
-            // _z_att.w() = z.qw();
-            // _z_att.x() = z.qx();
-            // _z_att.y() = z.qy();
-            // _z_att.z() = z.qz();
+            // // _z_att.w() = z.qw();
+            // // _z_att.x() = z.qx();
+            // // _z_att.y() = z.qy();
+            // // _z_att.z() = z.qz();
+            // // _z_att.normalize();
+            Eigen::VectorXd _tmp_1(4);
+            _tmp_1 = z.block(VioMeasurementModel<T>::Vm::qW, 0, 4, 1);
+            // _z_att.w() = _tmp_1(0);
+            // _z_att.x() = _tmp_1(1);
+            // _z_att.y() = _tmp_1(2);
+            // _z_att.z() = _tmp_1(3);
             // _z_att.normalize();
 
             // Eigen::Quaterniond _y_att;
-            // _y_att.w() = y_predict.qw();
-            // _y_att.x() = y_predict.qx();
-            // _y_att.y() = y_predict.qy();
-            // _y_att.z() = y_predict.qz();
+            // // _y_att.w() = y_predict.qw();
+            // // _y_att.x() = y_predict.qx();
+            // // _y_att.y() = y_predict.qy();
+            // // _y_att.z() = y_predict.qz();
+            // // _y_att = y_predict.block(VioMeasurementModel<T>::Vm::qW, 0, 4, 1);
+            Eigen::VectorXd _tmp_2(4);
+            _tmp_2 = y_predict.block(VioMeasurementModel<T>::Vm::qW, 0, 4, 1);
+
+            double _dis1 = (_tmp_1 - _tmp_2).norm();
+            double _dis2 = (- _tmp_1 - _tmp_2).norm();
+
+            if (_dis1 > _dis2) {
+                Eigen::VectorXd _tmp_3(4);
+                _tmp_3 = - _tmp_1 - _tmp_2;
+                tmp(VioMeasurementModel<T>::Vm::qW) = _tmp_3(0);
+                tmp(VioMeasurementModel<T>::Vm::qX) = _tmp_3(1);
+                tmp(VioMeasurementModel<T>::Vm::qY) = _tmp_3(2);
+                tmp(VioMeasurementModel<T>::Vm::qZ) = _tmp_3(3);
+            }
+
+            // _y_att.w() = _tmp_1(0);
+            // _y_att.x() = _tmp_1(1);
+            // _y_att.y() = _tmp_1(2);
+            // _y_att.z() = _tmp_1(3);
             // _y_att.normalize();
 
             // Eigen::Quaterniond _q_att_inv = _z_att.inverse();
@@ -332,38 +359,16 @@ class Vio_update {
 
             // Eigen::Vector3d _delta_ang_err{_scalar*_delta_att.x(), _scalar*_delta_att.y(), _scalar*_delta_att.z()};
 
-            // Vector<T, 3> _y_att = y_predict.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
-            // Eigen::Matrix3d _y_R;
-            // _y_R = Eigen::AngleAxisd(double(_y_att(2)), Eigen::Vector3d::UnitZ())
-            //     * Eigen::AngleAxisd(double(_y_att(1)), Eigen::Vector3d::UnitY())
-            //     * Eigen::AngleAxisd(double(_y_att(0)), Eigen::Vector3d::UnitX());
-            
-            // Vector<T, 3> _sp_att = z.block(VioMeasurementModel<T>::Vm::phI, 0, 3, 1);
-            // Eigen::Matrix3d _sp_R;
-            // _sp_R = Eigen::AngleAxisd(double(_sp_att(2)), Eigen::Vector3d::UnitZ())
-            //     * Eigen::AngleAxisd(double(_sp_att(1)), Eigen::Vector3d::UnitY())
-            //     * Eigen::AngleAxisd(double(_sp_att(0)), Eigen::Vector3d::UnitX());
-            
-            // std::cout << "update: sp_R:" << std::endl;
-            // std::cout << _sp_R << std::endl;
-            // std::cout << "update: y_R :" << std::endl;
-            // std::cout << _y_R << std::endl;
-            
-            // Eigen::Matrix3d temp_eR;
-            // temp_eR = (_y_R.transpose()*_sp_R - _sp_R.transpose()*_y_R) / 2.0f;
-            // // Eigen::Matrix3d temp_eR = _y_R.transpose() * _sp_R;
+            // Eigen::Quaterniond _dq = Eigen::AngleAxisd(_delta_ang_err(2), Eigen::Vector3d::UnitZ())
+            //                     * Eigen::AngleAxisd(_delta_ang_err(1), Eigen::Vector3d::UnitY())
+            //                     * Eigen::AngleAxisd(_delta_ang_err(0), Eigen::Vector3d::UnitX());
+            // // Eigen::Quaterniond _new_norm_q = (_y_att)
 
-            // // Eigen::Vector3d temp_ee = temp_eR.eulerAngles(2,1,0);
-            
-            // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_eR(2,1));
-            // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_eR(0,2));
-            // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_eR(1,0));
-            // // tmp(VioMeasurementModel<T>::Vm::phI) = T(temp_ee(2));
-            // // tmp(VioMeasurementModel<T>::Vm::thE) = T(temp_ee(1));
-            // // tmp(VioMeasurementModel<T>::Vm::psI) = T(temp_ee(0));
+            // tmp(VioMeasurementModel<T>::Vm::qW) = _dq.w();
+            // tmp(VioMeasurementModel<T>::Vm::qX) = _dq.x();
+            // tmp(VioMeasurementModel<T>::Vm::qY) = _dq.y();
+            // tmp(VioMeasurementModel<T>::Vm::qZ) = _dq.z();
 
-            // std::cout << "delta y" << std::endl;
-            // std::cout << tmp.transpose() << std::endl;
 
             x += K * tmp;
             Eigen::Quaterniond _tmp_q;
