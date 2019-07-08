@@ -1,0 +1,15 @@
+<launch>
+
+  <node pkg="lidar_filter"
+    type="lidar_filter_node"
+    name="lidar_filter_node"
+    output="screen">
+  </node>
+
+  <node pkg="motion_estimator_ukf"
+    type="motion_estimator_ukf_node"
+    name="motion_estimator_ukf_node"
+    output="screen">
+  </node>
+
+</launch>

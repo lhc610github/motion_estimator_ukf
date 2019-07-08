@@ -317,7 +317,7 @@ class Filter {
                         _tmp_q.z() = double(tmp.att.z());
                         _tmp_q.normalize();
                         Eigen::Matrix3d _tmp_R = _tmp_q.toRotationMatrix();
-                        if (_tmp_R(2,2) > 0.8f) {
+                        if (_tmp_R(2,2) > 0.7f) {
                         // std::cout << "hello3" << std::endl;
                             if (_tmp_lidar.data > 0.2) { // 0.7
                                 double _meas_distant = 0.02f * _tmp_R(2,0) + 0.05f * _tmp_R(2,1) + (_tmp_lidar.data + 0.11f) * _tmp_R(2,2);
