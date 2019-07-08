@@ -319,12 +319,12 @@ class Filter {
                         Eigen::Matrix3d _tmp_R = _tmp_q.toRotationMatrix();
                         if (_tmp_R(2,2) > 0.8f) {
                         // std::cout << "hello3" << std::endl;
-                            if (_tmp_lidar.data > 0.7) {
+                            if (_tmp_lidar.data > 0.2) { // 0.7
                                 double _meas_distant = 0.02f * _tmp_R(2,0) + 0.05f * _tmp_R(2,1) + (_tmp_lidar.data + 0.11f) * _tmp_R(2,2);
                                 double _err_vio_lidar_z = tmp.pos(2) - bias_vio_z - _meas_distant - terrain_vpos;//_error_lidar;
                                 // std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
                                 err_vio_lidar_z_integ += _err_vio_lidar_z;
-                                double _lidar_correct_gain = 0.08f/ 0.25f;
+                                double _lidar_correct_gain = 0.21f/ 0.25f;
                                 double _lidar_correct_gain_sp = _lidar_correct_gain * _lidar_correct_gain;
                                 bias_vio_z = _lidar_correct_gain * _err_vio_lidar_z + _lidar_correct_gain_sp * 0.2f * err_vio_lidar_z_integ;
                                 // std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
@@ -371,13 +371,13 @@ class Filter {
                     double _R_22 = _temp_R(2,2);
                     double _R_21 = _temp_R(2,1);
                     double _R_20 = _temp_R(2,0);
-                    if (_R_22 > 0.8f) {
+                    if (_R_22 > 0.7f) {
                         double _meas_height = 0.02f * _R_20 + 0.05f * _R_21 + (tmp.data + 0.11f)* _R_22;
                         estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height + terrain_vpos, tmp.t);
                         lidar_data _need_to_update;
                         _need_to_update.t = tmp.t;
                         _need_to_update.data = _meas_height;
-                        if (tmp.data > 0.6f) {
+                        if (tmp.data > 0.2f) { // 0.6f
                             double _meas_dt = tmp.t - last_lidar_measurement_valid_time;
                             if (_meas_dt < 0.5f) {
                                 double _error_lidar = PredictBuf.rbegin()->x(2) - _meas_height - terrain_vpos;
