@@ -19,9 +19,9 @@ class Filter {
             ImuBuf_Size = 500;
             has_regist_publisher = false;
             // Delay_Size = 80;
-            int Delay_output_period = 12;
+            int Delay_output_period = 13;
             PredictBuf_Size = 60;
-            OutputPeriodCount = 7;
+            OutputPeriodCount = 4;
             Delay_Size = Delay_output_period * OutputPeriodCount;
             PredictIndex = 0;
             outputpredictor_filter_ptr = new OutputPredictor<T>(Delay_output_period, OutputPeriodCount);
@@ -141,7 +141,7 @@ class Filter {
                     restart_filter();
                     filter_mutex.unlock();
                     return;
-                } else if (_dt > 1.0f) {
+                } else if (_dt > 1.7f) {
                     std::cout << "[filter]: predict dt to large ? : "<< _dt << std::endl;
                     // std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
                     printf("[filter]: imu_t: %.4f,  vio_t: %.4f\n", ImuBuf[_i].t, PredictBuf.rbegin()->t);
