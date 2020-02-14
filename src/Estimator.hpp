@@ -19,7 +19,7 @@ class Filter {
             ImuBuf_Size = 500;
             has_regist_publisher = false;
             // Delay_Size = 80;
-            int Delay_output_period = 12;
+            int Delay_output_period = 6;
             PredictBuf_Size = 60;
             OutputPeriodCount = 2;
             Delay_Size = Delay_output_period * OutputPeriodCount;
@@ -151,8 +151,8 @@ class Filter {
                     return;
                 } else if (_dt < 0.0f) {
                     _dt = 0.001f;
-                } else if (_dt > 0.5f) {
-                    _dt = 0.5f;
+                } else if (_dt > 0.1f) {
+                    _dt = 0.1f;
                 }
 
                 PredictIndex++;
@@ -328,7 +328,7 @@ class Filter {
                                 double _lidar_correct_gain = 0.21f/ 0.25f;
                                 double _lidar_correct_gain_sp = _lidar_correct_gain * _lidar_correct_gain;
                                 bias_vio_z = _lidar_correct_gain * _err_vio_lidar_z + _lidar_correct_gain_sp * 0.2f * err_vio_lidar_z_integ;
-                                // std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
+//                                std::cout << "[filter]: bias_vio_z: " << bias_vio_z << std::endl;
                             }
                         }
                     }
@@ -379,7 +379,7 @@ class Filter {
                         lidar_data _need_to_update;
                         _need_to_update.t = tmp.t;
                         _need_to_update.data = _meas_height;
-                        if (tmp.data > 0.2f) { // 0.6f
+                        if (tmp.data > 0.5f) {// 0.2f // 0.6f
                             double _meas_dt = tmp.t - last_lidar_measurement_valid_time;
                             if (_meas_dt < 0.5f) {
                                 double _error_lidar = PredictBuf.rbegin()->x(2) - _meas_height - terrain_vpos;
@@ -394,14 +394,14 @@ class Filter {
                                     double _old_z = double(_x(2));
                                     P _P;
                                     _P = PredictBuf.rbegin()->P;
-                                    lidar_update_core.update(_z, _x, _P, _n);
-                                    predict_core.update_P_x(_P, _x);
-                                    predict_state<T> _p_s;
-                                    _p_s.t = PredictBuf.rbegin()->t;
-                                    _p_s.P = _P;
-                                    _p_s.x = _x;
-                                    PredictBuf.clear();
-                                    PredictBuf.push_back(_p_s);
+                                    //lidar_update_core.update(_z, _x, _P, _n);
+                                    //predict_core.update_P_x(_P, _x);
+                                    //predict_state<T> _p_s;
+                                    //_p_s.t = PredictBuf.rbegin()->t;
+                                    //_p_s.P = _P;
+                                    //_p_s.x = _x;
+                                    //PredictBuf.clear();
+                                    //PredictBuf.push_back(_p_s);
                                     // TODO: update correct bias of vio z
                                     // double _err_vio_lidar_z = _x(2) - _meas_height - terrain_vpos;//_error_lidar;
                                     // std::cout << "[filter]: err_vio_lidar: " << _err_vio_lidar_z << std::endl;
