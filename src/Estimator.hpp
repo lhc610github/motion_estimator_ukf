@@ -141,7 +141,7 @@ class Filter {
                     restart_filter();
                     filter_mutex.unlock();
                     return;
-                } else if (_dt > 1.7f) {
+                } else if (_dt > 1.0f) {
                     std::cout << "[filter]: predict dt to large ? : "<< _dt << std::endl;
                     // std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
                     printf("[filter]: imu_t: %.4f,  vio_t: %.4f\n", ImuBuf[_i].t, PredictBuf.rbegin()->t);
