@@ -54,8 +54,12 @@ class OutputPredictor {
         }
 
         void input_imu(const imu_data& _data, const int& _i, const double& _dt) {
-            if (_dt < 0.0f || _dt > 0.5f) {
-                std::cout << "predictor has problem! restart" << std::endl;
+			double tmp_dt = _dt;
+			if (_dt < 0.0f && _dt > -1.0f) {
+				tmp_dt = 0.0001f;	
+			}
+            if (tmp_dt < 0.0f || tmp_dt > 0.5f) {
+                std::cout << "predictor has problem! restart " << _dt << std::endl;
                 reset();
             }
             imu_data _tmp = _data;
@@ -64,17 +68,17 @@ class OutputPredictor {
                 ImuBuf.clear();
                 DtBuf.clear();
                 ImuBuf.push_back(_tmp);
-                DtBuf.push_back(_dt);
+                DtBuf.push_back(tmp_dt);
             } else if (_i == ImuCount) {
                 ImuBuf.push_back(_tmp);
-                DtBuf.push_back(_dt);
+                DtBuf.push_back(tmp_dt);
                 if (ImuBuf.size() == ImuCount && DtBuf.size() == ImuCount) {
                     cal_ImuSample();
                 }
             } else {
                 if (_i == ImuBuf.size()+1) {
                     ImuBuf.push_back(_tmp);
-                    DtBuf.push_back(_dt);
+                    DtBuf.push_back(tmp_dt);
                 }
             }
         }

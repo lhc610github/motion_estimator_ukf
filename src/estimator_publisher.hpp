@@ -28,6 +28,7 @@ class EstimatorPublisher {
             ukf_pub = _nh.advertise<nav_msgs::Odometry>("/ukf/odometry", 100);
             ukf_predict_pub = _nh.advertise<nav_msgs::Odometry>("/ukf_predict/odometry", 100);
             lidar_pub = _nh.advertise<sensor_msgs::FluidPressure>("/lidar_data", 100);
+			lidar_data_pub = _nh.advertise<geometry_msgs::PointStamped>("/lidar_ukf", 100);
             has_register = true;
         }
 
@@ -93,6 +94,13 @@ class EstimatorPublisher {
             _tmp_msg.fluid_pressure = _distant;
             _tmp_msg.variance = _lidar_data;
             lidar_pub.publish(_tmp_msg);
+			geometry_msgs::PointStamped _tmp_lidar;
+            _tmp_lidar.header.frame_id = "world";
+            _tmp_lidar.header.stamp = ros::Time(t);
+			_tmp_lidar.point.x = 0;
+			_tmp_lidar.point.y = 0;
+			_tmp_lidar.point.z = _distant;
+			lidar_data_pub.publish(_tmp_lidar);
         }
 
         void UkfPub(const Eigen::Vector3d& _pos, const Eigen::Vector3d& _vel, const Eigen::Vector3d& _acc,
@@ -180,6 +188,7 @@ class EstimatorPublisher {
         ros::Publisher ukf_pub;
         ros::Publisher ukf_predict_pub;
         ros::Publisher lidar_pub;
+	ros::Publisher lidar_data_pub;
         ros::Publisher pos_pub;
         ros::Publisher vel_pub;
         ros::Publisher acc_pub;

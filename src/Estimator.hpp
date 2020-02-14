@@ -21,7 +21,7 @@ class Filter {
             // Delay_Size = 80;
             int Delay_output_period = 12;
             PredictBuf_Size = 60;
-            OutputPeriodCount = 7;
+            OutputPeriodCount = 2;
             Delay_Size = Delay_output_period * OutputPeriodCount;
             PredictIndex = 0;
             outputpredictor_filter_ptr = new OutputPredictor<T>(Delay_output_period, OutputPeriodCount);
@@ -137,15 +137,16 @@ class Filter {
                     std::cout << "[filter]: predict dt < 0 ? : " << _dt << std::endl;
                     // std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
                     printf("[filter]: imu_t: %.4f,  vio_t: %.4f\n", ImuBuf[_i].t, PredictBuf.rbegin()->t);
-                    // _dt = 0.001f;
-                    restart_filter();
+                     _dt = 0.001f;
+                    //restart_filter();
                     filter_mutex.unlock();
                     return;
                 } else if (_dt > 1.0f) {
                     std::cout << "[filter]: predict dt to large ? : "<< _dt << std::endl;
                     // std::cout << "[filter]: imu_t: "<< ImuBuf[_i].t << " vio_t: " << PredictBuf.rbegin()->t<< std::endl;
                     printf("[filter]: imu_t: %.4f,  vio_t: %.4f\n", ImuBuf[_i].t, PredictBuf.rbegin()->t);
-                    restart_filter();
+                    _dt = 0.1f;
+					//restart_filter();
                     filter_mutex.unlock();
                     return;
                 } else if (_dt < 0.0f) {
@@ -372,8 +373,9 @@ class Filter {
                     double _R_21 = _temp_R(2,1);
                     double _R_20 = _temp_R(2,0);
                     if (_R_22 > 0.7f) {
-                        double _meas_height = 0.02f * _R_20 + 0.05f * _R_21 + (tmp.data + 0.11f)* _R_22;
-                        estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height + terrain_vpos, tmp.t);
+                        double _meas_height = -0.02f * _R_20 + 0.05f * _R_21 + (tmp.data + 0.02f)* _R_22;
+                        //estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height + terrain_vpos, tmp.t);
+                        estimator_publisher_ptr->LidarPub(bias_vio_z, _meas_height, tmp.t);
                         lidar_data _need_to_update;
                         _need_to_update.t = tmp.t;
                         _need_to_update.data = _meas_height;

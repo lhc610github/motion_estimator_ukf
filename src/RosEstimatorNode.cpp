@@ -3,6 +3,7 @@
 #include "nav_msgs/Odometry.h"
 #include "sensor_msgs/Imu.h"
 #include "sensor_msgs/FluidPressure.h"
+#include "sensor_msgs/Range.h"
 
 #include "estimator_publisher.hpp"
 
@@ -24,24 +25,36 @@ void imu_cb(const sensor_msgs::ImuConstPtr& imu_msg) {
 void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
     vio_data tmp_data;
     tmp_data.t = vio_msg->header.stamp.toSec();
-    tmp_data.pos(0) = vio_msg->pose.pose.position.x;
-    tmp_data.pos(1) = vio_msg->pose.pose.position.y;
-    tmp_data.pos(2) = vio_msg->pose.pose.position.z;
-    tmp_data.vel(0) = vio_msg->twist.twist.linear.x;
-    tmp_data.vel(1) = vio_msg->twist.twist.linear.y;
-    tmp_data.vel(2) = vio_msg->twist.twist.linear.z;
+
     Eigen::Quaterniond tmp_q;
     tmp_q.w() = vio_msg->pose.pose.orientation.w;
     tmp_q.x() = vio_msg->pose.pose.orientation.x;
     tmp_q.y() = vio_msg->pose.pose.orientation.y;
     tmp_q.z() = vio_msg->pose.pose.orientation.z;
-    // if (tmp_q.w() < 0) {
-    //     tmp_q.w() = -tmp_q.w();
-    //     tmp_q.x() = -tmp_q.x();
-    //     tmp_q.y() = -tmp_q.y();
-    //     tmp_q.z() = -tmp_q.z();
-    // }
+	Eigen::Matrix3d tmp_R = tmp_q.toRotationMatrix();
+	Eigen::Quaterniond tmp_rotate_y = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ())
+								* Eigen::AngleAxisd(0.785398, Eigen::Vector3d::UnitY())
+                                * Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX());
+	Eigen::Matrix3d tmp_R2 = tmp_R * tmp_rotate_y.toRotationMatrix().transpose();
+	tmp_q = tmp_R2;
     tmp_q.normalize();
+
+    Eigen::Vector3d tf_vec_ = {0.1, 0, -0.04}; // 0.08 0 -0.04
+	Eigen::Vector3d odom_drift = tmp_R2*tf_vec_;
+	Eigen::Matrix3d omega;
+	omega << 0, -vio_msg->twist.twist.angular.z, vio_msg->twist.twist.angular.y,
+			vio_msg->twist.twist.angular.z, 0, -vio_msg->twist.twist.angular.x,
+			-vio_msg->twist.twist.angular.y, vio_msg->twist.twist.angular.x, 0;
+	Eigen::Vector3d vel_drift = tmp_R2*omega*tf_vec_;
+
+    tmp_data.pos(0) = vio_msg->pose.pose.position.x - odom_drift(0);
+    tmp_data.pos(1) = vio_msg->pose.pose.position.y - odom_drift(1);
+    tmp_data.pos(2) = vio_msg->pose.pose.position.z - odom_drift(2);
+    tmp_data.vel(0) = vio_msg->twist.twist.linear.x;// - vel_drift(0);
+    tmp_data.vel(1) = vio_msg->twist.twist.linear.y;// - vel_drift(1);
+    tmp_data.vel(2) = vio_msg->twist.twist.linear.z;// - vel_drift(2);
+
+
     // Eigen::Matrix3d tmp_R = tmp_q.toRotationMatrix();
     // Eigen::Vector3d tmp_e = tmp_R.eulerAngles(2,1,0);
     // tmp_q = Eigen::AngleAxisd(tmp_e(2), Eigen::Vector3d::UnitZ())
@@ -60,6 +73,13 @@ void lidar_cb(const sensor_msgs::FluidPressurePtr& lidar_msg) {
     filter_core_ptr->input_lidar(tmp_data);
 }
 
+void lidar2_cb(const sensor_msgs::RangePtr& lidar_msg) {
+	lidar_data tmp_data;
+	tmp_data.t = lidar_msg->header.stamp.toSec();
+	tmp_data.data = lidar_msg->range;
+    filter_core_ptr->input_lidar(tmp_data);
+}
+
 int main(int argc, char** argv) {
     ros::init(argc, argv, "motion_estimator_node");
     ros::NodeHandle node("~");
@@ -67,11 +87,13 @@ int main(int argc, char** argv) {
     _estimator_publisher.PublisherRegist(node);
     filter_core_ptr = new Filter<T>();
     filter_core_ptr->set_publish(_estimator_publisher);
-    ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
+    //ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu_filter", 20, imu_cb, ros::TransportHints().tcpNoDelay());
     // ros::Subscriber sub_imu = node.subscribe("/imu_ns/imu/imu", 20, imu_cb, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_vio = node.subscribe("/vins_estimator/odometry", 10, vio_cb);
-    ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_filtered", 10, lidar_cb);
-    ros::spin();
+    ros::Subscriber sub_imu = node.subscribe("/mavros/imu/data_raw", 20, imu_cb, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_vio = node.subscribe("/rs_lf/odometry", 10, vio_cb);
+    //ros::Subscriber sub_lidar = node.subscribe("/lidar_ns/lidar_filtered", 10, lidar_cb);
+    ros::Subscriber sub_lidar = node.subscribe("/mavros/distance_sensor/hrlv_ez4_pub", 10, lidar2_cb);
+	ros::spin();
     // ros::AsyncSpinner spinner(4);
     // spinner.start();
     // ros::waitForShutdown();
