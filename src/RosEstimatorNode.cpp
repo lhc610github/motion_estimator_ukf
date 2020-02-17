@@ -9,6 +9,8 @@
 
 typedef double T;
 Filter<T>* filter_core_ptr;
+vio_data* old_vio_data_ptr;
+Eigen::Vector3d vio_draft;
 
 void imu_cb(const sensor_msgs::ImuConstPtr& imu_msg) {
     imu_data tmp_data;
@@ -63,6 +65,28 @@ void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
     // tmp_q = tmp_R;
     // // std::cout <<"in :R"<< tmp_R << std::endl;
     tmp_data.att = tmp_q;
+    tmp_data.pos -= vio_draft;
+    if (old_vio_data_ptr == nullptr) {
+        old_vio_data_ptr = new vio_data;
+        *old_vio_data_ptr = tmp_data;
+    } else {
+        Eigen::Vector3d dp;
+        double dt;
+        dp(0) = tmp_data.pos(0) - old_vio_data_ptr->pos(0);
+        dp(1) = tmp_data.pos(1) - old_vio_data_ptr->pos(1);
+        dp(2) = tmp_data.pos(2) - old_vio_data_ptr->pos(2);
+        dt = tmp_data.t - old_vio_data_ptr->t;
+        dt = dt > 0? dt: 0.04f; // 20Hz
+        double dp_norm = dp.norm();
+        if (dp_norm/dt > 2.5f) {
+            vio_draft += (dp_norm/dt - 2.5f) * dp.normalized();
+            tmp_data.pos -= (dp_norm/dt - 2.5f) * dp.normalized();
+        }
+        *old_vio_data_ptr = tmp_data;
+    }
+    ROS_INFO_THROTTLE(1.0,
+                      "\033[1;33m vio call back draft: [%.3f, %.3f, %.3f]; \033[0m",
+                      vio_draft(0), vio_draft(1), vio_draft(2) );
     filter_core_ptr->input_vio(tmp_data);
 }
 
@@ -83,6 +107,7 @@ void lidar2_cb(const sensor_msgs::RangePtr& lidar_msg) {
 int main(int argc, char** argv) {
     ros::init(argc, argv, "motion_estimator_node");
     ros::NodeHandle node("~");
+    vio_draft.setZero();
     EstimatorPublisher _estimator_publisher;
     _estimator_publisher.PublisherRegist(node);
     filter_core_ptr = new Filter<T>();
