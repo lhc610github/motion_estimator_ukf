@@ -79,8 +79,8 @@ void vio_cb(const nav_msgs::OdometryPtr& vio_msg) {
         dt = dt > 0? dt: 0.04f; // 20Hz
         double dp_norm = dp.norm();
         if (dp_norm/dt > 2.5f) {
-            vio_draft += (dp_norm/dt - 2.5f) * dp.normalized();
-            tmp_data.pos -= (dp_norm/dt - 2.5f) * dp.normalized();
+            vio_draft += (dp_norm/dt - 2.5f) *dt * dp.normalized();
+            tmp_data.pos -= (dp_norm/dt - 2.5f) *dt * dp.normalized();
         }
         *old_vio_data_ptr = tmp_data;
     }
