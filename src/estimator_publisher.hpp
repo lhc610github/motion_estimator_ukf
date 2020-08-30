@@ -35,71 +35,71 @@ class EstimatorPublisher {
         void PosPub(const Eigen::Vector3d& _pos, const Eigen::Quaterniond& _q_att, double _t) {
             if (!has_register)
                 return;
-            geometry_msgs::PoseStamped _tmp_msg;
-            _tmp_msg.header.frame_id = "world";
-            _tmp_msg.header.stamp = ros::Time(_t);
-            _tmp_msg.pose.position.x = _pos(0);
-            _tmp_msg.pose.position.y = -_pos(1);
-            _tmp_msg.pose.position.z = -_pos(2);
-            _tmp_msg.pose.orientation.w = _q_att.w();
-            _tmp_msg.pose.orientation.x = _q_att.x();
-            _tmp_msg.pose.orientation.y = -_q_att.y();
-            _tmp_msg.pose.orientation.z = -_q_att.z();
+            geometry_msgs::PoseStampedPtr _tmp_msg(new geometry_msgs::PoseStamped);
+            _tmp_msg->header.frame_id = "world";
+            _tmp_msg->header.stamp = ros::Time(_t);
+            _tmp_msg->pose.position.x = _pos(0);
+            _tmp_msg->pose.position.y = -_pos(1);
+            _tmp_msg->pose.position.z = -_pos(2);
+            _tmp_msg->pose.orientation.w = _q_att.w();
+            _tmp_msg->pose.orientation.x = _q_att.x();
+            _tmp_msg->pose.orientation.y = -_q_att.y();
+            _tmp_msg->pose.orientation.z = -_q_att.z();
             pos_pub.publish(_tmp_msg);
         }
 
         void VelPub(const Eigen::Vector3d& _vel, double _t) {
             if (!has_register)
                 return;
-            geometry_msgs::Vector3Stamped _tmp_msg;
-            _tmp_msg.header.frame_id = "world";
-            _tmp_msg.header.stamp = ros::Time(_t);
-            _tmp_msg.vector.x = _vel(0);
-            _tmp_msg.vector.y = -_vel(1);
-            _tmp_msg.vector.z = -_vel(2);
+            geometry_msgs::Vector3StampedPtr _tmp_msg(new geometry_msgs::Vector3Stamped);
+            _tmp_msg->header.frame_id = "world";
+            _tmp_msg->header.stamp = ros::Time(_t);
+            _tmp_msg->vector.x = _vel(0);
+            _tmp_msg->vector.y = -_vel(1);
+            _tmp_msg->vector.z = -_vel(2);
             vel_pub.publish(_tmp_msg);
         }
 
         void AccPub(const Eigen::Vector3d& _acc, double _t) {
             if (!has_register)
                 return;
-            geometry_msgs::Vector3Stamped _tmp_msg;
-            _tmp_msg.header.frame_id = "world";
-            _tmp_msg.header.stamp = ros::Time(_t);
-            _tmp_msg.vector.x = _acc(0);
-            _tmp_msg.vector.y = -_acc(1);
-            _tmp_msg.vector.z = -_acc(2);
+            geometry_msgs::Vector3StampedPtr _tmp_msg(new geometry_msgs::Vector3Stamped);
+            _tmp_msg->header.frame_id = "world";
+            _tmp_msg->header.stamp = ros::Time(_t);
+            _tmp_msg->vector.x = _acc(0);
+            _tmp_msg->vector.y = -_acc(1);
+            _tmp_msg->vector.z = -_acc(2);
             acc_pub.publish(_tmp_msg);
         }
 
         void AttPub(const Eigen::Quaterniond& _q_att, double _t) {
             if (!has_register)
                 return;
-            geometry_msgs::PoseStamped _tmp_msg;
-            _tmp_msg.header.frame_id = "world";
-            _tmp_msg.header.stamp = ros::Time(_t);
-            _tmp_msg.pose.orientation.w = _q_att.w();
-            _tmp_msg.pose.orientation.x = _q_att.x();
-            _tmp_msg.pose.orientation.y = -_q_att.y();
-            _tmp_msg.pose.orientation.z = -_q_att.z();
+            geometry_msgs::PoseStampedPtr _tmp_msg(new geometry_msgs::PoseStamped);
+            _tmp_msg->header.frame_id = "world";
+            _tmp_msg->header.stamp = ros::Time(_t);
+            _tmp_msg->pose.orientation.w = _q_att.w();
+            _tmp_msg->pose.orientation.x = _q_att.x();
+            _tmp_msg->pose.orientation.y = -_q_att.y();
+            _tmp_msg->pose.orientation.z = -_q_att.z();
             att_pub.publish(_tmp_msg);
         }
 
         void LidarPub(const double& _lidar_data, const double& _distant, const double& t) {
             if (!has_register)
                 return;
-            sensor_msgs::FluidPressure _tmp_msg;
-            _tmp_msg.header.frame_id = "world";
-            _tmp_msg.header.stamp = ros::Time(t);
-            _tmp_msg.fluid_pressure = _distant;
-            _tmp_msg.variance = _lidar_data;
+            sensor_msgs::FluidPressurePtr _tmp_msg(new sensor_msgs::FluidPressure);
+            _tmp_msg->header.frame_id = "world";
+            _tmp_msg->header.stamp = ros::Time(t);
+            _tmp_msg->fluid_pressure = _distant;
+            _tmp_msg->variance = _lidar_data;
             lidar_pub.publish(_tmp_msg);
-			geometry_msgs::PointStamped _tmp_lidar;
-            _tmp_lidar.header.frame_id = "world";
-            _tmp_lidar.header.stamp = ros::Time(t);
-			_tmp_lidar.point.x = 0;
-			_tmp_lidar.point.y = 0;
-			_tmp_lidar.point.z = _distant;
+			geometry_msgs::PointStampedPtr _tmp_lidar(new geometry_msgs::PointStamped);
+            _tmp_lidar->header.frame_id = "world";
+            _tmp_lidar->header.stamp = ros::Time(t);
+			_tmp_lidar->point.x = 0;
+			_tmp_lidar->point.y = 0;
+			_tmp_lidar->point.z = _distant;
 			lidar_data_pub.publish(_tmp_lidar);
         }
 

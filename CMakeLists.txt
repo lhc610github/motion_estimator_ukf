@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   tf
   tf2_ros
+        nodelet
 )
 
 find_package(Eigen3)
@@ -120,7 +121,7 @@ add_definitions(-std=c++11)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES motion_estimator_ukf
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs nav_msgs tf tf2_ros nodelet
 #  DEPENDS system_lib
 )
 
@@ -165,7 +166,14 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+add_library(estimator_nodelet
+        src/EstimatorNodeletClass.cpp)
+target_link_libraries(estimator_nodelet
+        ${catkin_LIBRARIES})
 
+if(catkin_EXPORTED_LIBRARIES)
+  add_dependencies(estimator_nodelet ${catkin_EXPORTED_LIBRARIES})
+endif()
 # add_executable(${PROJECT_NAME}_test src/ros_motion_estimator_node.cpp )
 add_executable(${PROJECT_NAME}_node src/RosEstimatorNode.cpp )
 #############

@@ -1,0 +1,7 @@
+<library path="lib/libestimator_nodelet">
+    <class name="motion_estimator_ukf/EstimatorNodeletClass" type="estimator_namespace::EstimatorNodeletClass" base_class_type="nodelet::Nodelet">
+        <description>
+            estimator nodelet.
+        </description>
+    </class>
+</library>

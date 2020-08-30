@@ -1,0 +1,5 @@
+<launch>
+        <node pkg="nodelet" type="nodelet" args="load motion_estimator_ukf/EstimatorNodeletClass flight_core_nodelet_manager"
+              name="EstimatorNodeletClass_loader" output="screen">
+        </node>
+</launch>
